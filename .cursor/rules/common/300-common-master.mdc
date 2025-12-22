@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+---
+
+# Common Rules (LLM Rulebook)
+
+## Purpose
+
+Navigation for cross-cutting rules. Apply to all codebases regardless of language or framework.
+
+## Rules Selection (MUST)
+
+| Condition | Include |
+|-----------|---------|
+| Writing cursor rules or LLM prompts | 301-cursor-rules-development.mdc |
+| Any documentation, rules, specs | 302-llm-oriented-writing.mdc |
+| Adding tracing, logging, metrics | 303-observability.mdc |
+| Handling secrets, keys, tokens | 304-secret-leak-detection.mdc |
+
+## Always Active
+
+- `302-llm-oriented-writing.mdc` — applies to all LLM-consumed content
+- `304-secret-leak-detection.mdc` — applies to all code handling secrets

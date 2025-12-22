@@ -1,0 +1,81 @@
+---
+alwaysApply: false
+---
+
+# Rules Maintenance (LLM Rulebook)
+
+## Purpose
+
+Procedures for maintaining cursor rules repository. Apply when adding, updating, or removing rule files.
+
+## Adding New Rules (MUST)
+
+### 1. Create Rule File
+
+- Follow naming convention: `NNN-topic-name.mdc`
+- Use appropriate prefix: 3xx (common), 4xx (ops), 5xx (python), 6xx (nextjs)
+- Follow structure from `common/301-cursor-rules-development.mdc`
+
+### 2. Discover All Rules
+
+Run from repository root:
+
+```bash
+find cursor-rules -name "*.mdc" -type f | sort
+```
+
+Or:
+
+```bash
+ls -R cursor-rules/**/*.mdc
+```
+
+### 3. Update Master Files
+
+Update in order:
+
+1. Category master (e.g., `python/500-python-master.mdc`) — add to navigation table
+2. Root master (`000-master.mdc`) — add to category table
+
+### 4. Verify Structure
+
+```bash
+# List all rule files with line counts
+find cursor-rules -name "*.mdc" -exec wc -l {} \; | sort -n
+
+# Check for orphaned files (not in any master)
+diff <(find cursor-rules -name "*.mdc" | sort) <(grep -h "\.mdc" cursor-rules/*-master.mdc cursor-rules/000-master.mdc | grep -oE "[a-z]+/[0-9]+-[a-z-]+\.mdc" | sort -u)
+```
+
+## Prefix Allocation
+
+| Range | Category | Description |
+|-------|----------|-------------|
+| 000-099 | Root | Repository-level files |
+| 300-399 | Common | Cross-cutting rules |
+| 400-499 | Ops | Infrastructure, deployment |
+| 500-599 | Python | Python development |
+| 600-699 | Next.js | Next.js development |
+| 700-799 | Reserved | Future use |
+| 800-899 | Reserved | Future use |
+| 900-999 | Tools | Tooling-specific rules |
+
+## File Checklist
+
+Before committing new rule:
+
+- [ ] File follows `NNN-topic-name.mdc` naming
+- [ ] Frontmatter has correct `alwaysApply` value
+- [ ] Purpose section defines what, when to apply, when NOT to apply
+- [ ] Content follows `common/302-llm-oriented-writing.mdc`
+- [ ] Category master updated with new file
+- [ ] Root master (`000-master.mdc`) updated
+- [ ] No duplicate content with existing rules
+
+## Removing Rules
+
+1. Remove file
+2. Update category master — remove from table
+3. Update root master — remove from table
+4. Search for cross-references in other rules
+5. Update or remove cross-references

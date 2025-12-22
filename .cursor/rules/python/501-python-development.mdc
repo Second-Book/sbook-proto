@@ -1,0 +1,334 @@
+---
+alwaysApply: false
+---
+
+# Python Development Guide (LLM Rulebook)
+
+## Purpose
+
+Code style, type annotations, architecture patterns, and string literal management for Python projects. Apply when writing or reviewing Python code. DO NOT apply to configuration files or non-Python artifacts.
+
+## Code Style (MUST)
+
+### PEP 8 Compliance
+
+- Indentation: 4 spaces (NEVER tabs).
+- Maximum line length: 88 characters.
+- Blank lines: 2 between top-level definitions, 1 between methods.
+
+### Naming Conventions
+
+- Modules/packages: `lowercase` or `snake_case`
+- Classes: `PascalCase`
+- Functions/methods/variables: `snake_case`
+- Constants: `UPPER_CASE_WITH_UNDERSCORES`
+- Private: prefix with `_` (e.g., `_private_method`)
+
+```python
+# GOOD
+class UserProfile:
+    DEFAULT_AVATAR = "default.png"
+
+    def __init__(self, user_id: int) -> None:
+        self.user_id = user_id
+        self._cache: dict[str, Any] = {}
+
+    def get_settings(self) -> dict[str, Any]:
+        """Return user settings."""
+        return self._fetch_data()
+
+    def _fetch_data(self) -> dict[str, Any]:
+        """Private method to fetch user data."""
+        ...
+```
+
+### Import Organization
+
+Order: standard library → third-party → local modules. Alphabetical within each group.
+
+```python
+# Standard library
+import os
+from datetime import datetime
+
+# Third-party
+import numpy as np
+from fastapi import FastAPI
+
+# Local
+from myproject.core import utils
+from myproject.models import User
+```
+
+Remove unused imports. Use `flake8` (F401) for detection.
+
+## Type Annotations (MUST)
+
+### Function Signatures
+
+All functions MUST have type annotations:
+
+```python
+def calculate_total(items: list[float], tax_rate: float) -> float:
+    """Calculate total price including tax."""
+    subtotal = sum(items)
+    return subtotal * (1 + tax_rate)
+```
+
+### Complex Types
+
+```python
+from typing import Optional, TypeVar, Generic
+
+T = TypeVar("T")
+
+def find_item(items: list[T], key: str | int) -> T | None:
+    """Find an item by key or return None if not found."""
+    ...
+
+class Repository(Generic[T]):
+    def __init__(self) -> None:
+        self.items: list[T] = []
+
+    def add(self, item: T) -> None:
+        self.items.append(item)
+```
+
+### Variable Annotations
+
+Annotate when type is not obvious:
+
+```python
+# Annotate complex types
+user_ids: list[int] = []
+name_to_id: dict[str, int] = {}
+
+# No need for obvious types
+count = 0
+name = "John"
+```
+
+## String Literals (DO NOT)
+
+### Prohibition
+
+DO NOT use raw string literals as identifiers, keys, or status values:
+
+```python
+# BAD
+if response["status"] == "success":
+    process(response["data"])
+
+# GOOD
+class ResponseKey(str, Enum):
+    STATUS = "status"
+    DATA = "data"
+
+class StatusValue(str, Enum):
+    SUCCESS = "success"
+    ERROR = "error"
+
+if response[ResponseKey.STATUS] == StatusValue.SUCCESS:
+    process(response[ResponseKey.DATA])
+```
+
+### Enumerations
+
+Use `str, Enum` for string values (preserves serialization):
+
+```python
+from enum import Enum, auto
+
+class Color(str, Enum):
+    RED = "red"
+    GREEN = "green"
+    BLUE = "blue"
+
+# String value preserved
+assert Color.RED == "red"  # True
+```
+
+Use `IntEnum` for numeric values:
+
+```python
+from enum import IntEnum
+
+class Priority(IntEnum):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+
+assert Priority.HIGH > Priority.LOW  # True
+```
+
+### TypedDict for Structured Data
+
+```python
+from typing import TypedDict
+
+class UserData(TypedDict):
+    first_name: str
+    last_name: str
+    email: str
+
+user: UserData = {
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john@example.com",
+}
+```
+
+## Architecture (MUST)
+
+### Modular Structure
+
+```
+src/myproject/
+├── core/           # Core utilities
+│   ├── config.py   # Configuration
+│   └── utils.py    # Common utilities
+├── domain/         # Business logic
+│   ├── models.py   # Data models
+│   └── services.py # Business services
+├── adapters/       # External systems
+│   ├── database.py # DB operations
+│   └── api.py      # External APIs
+└── interfaces/     # Entry points
+    ├── cli.py      # CLI
+    └── web.py      # Web interface
+```
+
+### Dependency Direction
+
+Dependencies flow inward: `interfaces` → `domain` → `core`, `adapters` → `domain` → `core`.
+
+Inner layers MUST NOT depend on outer layers:
+
+```python
+# GOOD: domain uses core
+# domain/models.py
+from myproject.core.utils import format_date
+
+# BAD: core imports from domain
+# core/utils.py
+from myproject.domain.models import User  # WRONG!
+```
+
+### Single Responsibility
+
+Each class/module has one reason to change:
+
+```python
+# BAD: multiple responsibilities
+class User:
+    def save_to_database(self): ...
+    def send_welcome_email(self): ...
+
+# GOOD: separated concerns
+class User:
+    def __init__(self, name: str, email: str) -> None:
+        self.name = name
+        self.email = email
+
+class UserRepository:
+    def save(self, user: User) -> None: ...
+
+class EmailService:
+    def send_welcome(self, user: User) -> None: ...
+```
+
+### Dependency Injection
+
+Use constructor injection for testability:
+
+```python
+# GOOD: injectable dependencies
+class UserService:
+    def __init__(self, repository: UserRepository, email: EmailService) -> None:
+        self.repository = repository
+        self.email = email
+
+    def register(self, name: str, email: str) -> User:
+        user = User(name=name, email=email)
+        self.repository.save(user)
+        self.email.send_welcome(user)
+        return user
+
+# Easy to test with mocks
+def test_register():
+    repo_mock = Mock(spec=UserRepository)
+    email_mock = Mock(spec=EmailService)
+    service = UserService(repo_mock, email_mock)
+    service.register("John", "john@example.com")
+    repo_mock.save.assert_called_once()
+```
+
+## Documentation (MUST)
+
+### Docstrings
+
+Use Google format:
+
+```python
+def calculate_statistics(data: list[float]) -> dict[str, float]:
+    """Calculate statistical measures from given data.
+
+    Args:
+        data: List of numeric values.
+
+    Returns:
+        Dictionary with mean, median, min, max.
+
+    Raises:
+        ValueError: If data is empty.
+    """
+    if not data:
+        raise ValueError("Data cannot be empty")
+    return {
+        "mean": sum(data) / len(data),
+        "median": sorted(data)[len(data) // 2],
+        "min": min(data),
+        "max": max(data),
+    }
+```
+
+### Comments
+
+- MUST be in English.
+- Explain "why", not "what".
+- Use `TODO:`, `FIXME:`, `NOTE:` markers.
+
+## Tools (MUST)
+
+Configure in `pyproject.toml`:
+
+```toml
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "UP"]
+```
+
+Run before commit:
+
+```bash
+uv run black src/ tests/
+uv run isort src/ tests/
+uv run mypy src/
+uv run ruff check src/ tests/
+```
+
+## Out of Scope
+
+- High-level architecture patterns (MVC, Clean Architecture).
+- Performance optimization strategies.
+- Security beyond general best practices.

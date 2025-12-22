@@ -1,0 +1,167 @@
+---
+alwaysApply: false
+---
+
+# Python UV Tooling (LLM Rulebook)
+
+## Purpose
+
+Dependency management and tooling commands using uv package manager. Apply when installing packages, running scripts, or managing Python projects. DO NOT use pip/venv/virtualenv directly.
+
+## Tool Selection (MUST)
+
+- Use `uv` for all Python package management.
+- DO NOT use `pip`, `venv`, or `virtualenv` directly.
+- DO NOT activate venvs manually; uv handles environments.
+
+## Project Initialization (MUST)
+
+```bash
+# Initialize new project with pyproject.toml
+uv init
+
+# Initialize in existing directory
+uv init .
+```
+
+## Dependency Management (MUST)
+
+### Adding Dependencies
+
+```bash
+# Add production dependency
+uv add requests>=2.28.0
+uv add "fastapi>=0.95.0" "sqlalchemy>=2.0.0"
+
+# Add development dependency
+uv add --dev pytest>=7.0.0 black>=23.0.0 mypy>=1.0.0
+```
+
+### Removing Dependencies
+
+```bash
+# Remove production dependency
+uv remove requests
+
+# Remove development dependency
+uv remove --dev black
+```
+
+### Installing Dependencies
+
+```bash
+# Sync all dependencies from pyproject.toml
+uv sync
+```
+
+## Running Commands (MUST)
+
+### Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_services.py
+
+# Run with coverage
+uv run pytest --cov=myproject tests/
+```
+
+### Code Quality
+
+```bash
+# Format code
+uv run black src/ tests/
+
+# Sort imports
+uv run isort src/ tests/
+
+# Type checking
+uv run mypy src/
+
+# Linting
+uv run ruff check src/ tests/
+```
+
+### Applications
+
+```bash
+# Run Python script
+uv run python src/main.py
+
+# Run module
+uv run python -m myproject.cli
+```
+
+### MkDocs (Documentation)
+
+```bash
+# Serve docs locally
+cd tools/mkdocs-builder
+uv run mkdocs serve -f ../../mkdocs.yml -a 127.0.0.1:8765
+
+# Build docs
+cd tools/mkdocs-builder
+uv run mkdocs build -f ../../mkdocs.yml
+```
+
+## Configuration (MUST)
+
+### pyproject.toml Structure
+
+```toml
+[project]
+name = "myproject"
+version = "0.1.0"
+description = "Project description"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.100.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
+
+### Version Specification
+
+- Use `>=` for minimum version: `requests>=2.28.0`
+- Pin exact versions only when necessary: `numpy==1.24.0`
+- Lock file (`uv.lock`) ensures reproducibility.
+
+## Cross-Directory Execution
+
+Use `--directory` flag when running tools from other folders:
+
+```bash
+# Run from project root, tool in subdirectory
+uv run --directory tools/confluence-sync python -m confluence_sync.cli
+
+# With environment variables
+env $(cat tools/confluence-sync/.env | xargs) uv run --directory tools/confluence-sync python -m confluence_sync.cli
+```
+
+## Rules Summary
+
+- All paths MUST be relative to project root.
+- Pin dependencies in `pyproject.toml`.
+- Use `uv sync` to install, `uv run` to execute.
+- Lock file (`uv.lock`) MUST be committed for reproducibility.
+
+## Out of Scope
+
+- Virtual environment internals.
+- Publishing packages to PyPI.
+- Multi-project monorepo setup.

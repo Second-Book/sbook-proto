@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+---
+
+# Python Rules (LLM Rulebook)
+
+## Purpose
+
+Navigation for Python development rules. Apply when working with Python code.
+
+## Rules Selection (MUST)
+
+| Condition | Include |
+|-----------|---------|
+| Any Python code (style, types, architecture) | 501-python-development.mdc |
+| Writing tests, error handling, logging | 502-python-quality.mdc |
+| Package management, uv commands | 503-python-uv.mdc |
+
+## Cross-references
+
+- LLM writing style: `../common/302-llm-oriented-writing.mdc`
+- Observability: `../common/303-observability.mdc`
+- Secret handling: `../common/304-secret-leak-detection.mdc`

@@ -1,0 +1,483 @@
+---
+alwaysApply: false
+---
+
+# Next.js API & Testing Guide (LLM Rulebook)
+
+## Purpose
+
+API routes, server actions, data fetching, and testing for Next.js applications. Apply when building API endpoints, implementing tests, or handling server-side logic. DO NOT apply to UI styling.
+
+## API Routes (MUST)
+
+### Route Handler Pattern
+
+```typescript
+// app/api/users/route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+
+const UserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+})
+
+export async function GET(request: NextRequest) {
+  try {
+    const users = await db.user.findMany()
+    return NextResponse.json({ data: users, error: null })
+  } catch (error) {
+    return NextResponse.json(
+      { data: null, error: { code: "INTERNAL_ERROR", message: String(error) } },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const result = UserSchema.safeParse(body)
+
+    if (!result.success) {
+      return NextResponse.json(
+        { data: null, error: { code: "VALIDATION_ERROR", message: "Invalid data" } },
+        { status: 400 }
+      )
+    }
+
+    const user = await db.user.create({ data: result.data })
+    return NextResponse.json({ data: user, error: null }, { status: 201 })
+  } catch (error) {
+    return NextResponse.json(
+      { data: null, error: { code: "INTERNAL_ERROR", message: String(error) } },
+      { status: 500 }
+    )
+  }
+}
+```
+
+### Dynamic Route Handler
+
+```typescript
+// app/api/users/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server"
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const user = await db.user.findUnique({ where: { id: params.id } })
+
+  if (!user) {
+    return NextResponse.json(
+      { data: null, error: { code: "NOT_FOUND", message: "User not found" } },
+      { status: 404 }
+    )
+  }
+
+  return NextResponse.json({ data: user, error: null })
+}
+```
+
+## Server Actions (MUST)
+
+### Action Pattern
+
+```typescript
+// lib/actions.ts
+"use server"
+
+import { revalidatePath } from "next/cache"
+import { z } from "zod"
+
+const CreateUserSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+})
+
+export async function createUser(formData: FormData) {
+  const result = CreateUserSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+  })
+
+  if (!result.success) {
+    return { data: null, error: result.error.format() }
+  }
+
+  try {
+    const user = await db.user.create({ data: result.data })
+    revalidatePath("/users")
+    return { data: user, error: null }
+  } catch (error) {
+    return { data: null, error: { message: String(error) } }
+  }
+}
+```
+
+### Using in Component
+
+```typescript
+// components/user-form.tsx
+"use client"
+
+import { useFormState } from "react-dom"
+import { createUser } from "@/lib/actions"
+
+export function UserForm() {
+  const [state, formAction] = useFormState(createUser, null)
+
+  return (
+    <form action={formAction}>
+      <input name="name" required />
+      <input name="email" type="email" required />
+      <button type="submit">Create</button>
+      {state?.error && <p className="text-red-500">{state.error.message}</p>}
+    </form>
+  )
+}
+```
+
+## API Client (MUST)
+
+### Type-safe Client
+
+```typescript
+// lib/api/client.ts
+import { AppError } from "@/lib/errors"
+
+export class ApiClient {
+  constructor(private baseUrl = "/api") {}
+
+  async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new AppError(
+        data.error?.code || "API_ERROR",
+        data.error?.message || "API request failed"
+      )
+    }
+
+    return data
+  }
+
+  get<T>(path: string) {
+    return this.request<T>(path, { method: "GET" })
+  }
+
+  post<T>(path: string, body: unknown) {
+    return this.request<T>(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    })
+  }
+}
+
+export const api = new ApiClient()
+```
+
+### TanStack Query Integration
+
+```typescript
+// hooks/queries/use-users.ts
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { api } from "@/lib/api/client"
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: () => api.get<{ data: User[] }>("/users"),
+  })
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreateUserInput) => api.post<{ data: User }>("/users", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
+  })
+}
+```
+
+## Error Handling (MUST)
+
+### Error Class
+
+```typescript
+// lib/errors.ts
+export class AppError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public details?: Record<string, unknown>
+  ) {
+    super(message)
+    this.name = "AppError"
+  }
+}
+```
+
+### Error Boundary
+
+```typescript
+// components/error-boundary.tsx
+"use client"
+
+import { useQueryErrorResetBoundary } from "@tanstack/react-query"
+import { ErrorBoundary as ReactErrorBoundary } from "react-error-boundary"
+
+export function ErrorBoundary({ children }: { children: React.ReactNode }) {
+  const { reset } = useQueryErrorResetBoundary()
+
+  return (
+    <ReactErrorBoundary
+      onReset={reset}
+      fallbackRender={({ error, resetErrorBoundary }) => (
+        <div role="alert">
+          <p>Something went wrong:</p>
+          <pre>{error.message}</pre>
+          <button onClick={resetErrorBoundary}>Try again</button>
+        </div>
+      )}
+    >
+      {children}
+    </ReactErrorBoundary>
+  )
+}
+```
+
+## Testing Setup (MUST)
+
+### Jest Configuration
+
+```javascript
+// jest.config.js
+const nextJest = require("next/jest")
+
+const createJestConfig = nextJest({ dir: "./" })
+
+const customJestConfig = {
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+  testEnvironment: "jest-environment-jsdom",
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
+  collectCoverageFrom: [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "!**/*.d.ts",
+  ],
+}
+
+module.exports = createJestConfig(customJestConfig)
+```
+
+### Jest Setup
+
+```javascript
+// jest.setup.js
+import "@testing-library/jest-dom"
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
+}))
+
+beforeEach(() => {
+  jest.clearAllMocks()
+})
+```
+
+## Component Testing (MUST)
+
+### Component Test Pattern
+
+```typescript
+// components/__tests__/button.test.tsx
+import { render, screen, fireEvent } from "@testing-library/react"
+import { Button } from "../button"
+
+describe("Button", () => {
+  const defaultProps = {
+    onClick: jest.fn(),
+    children: "Click me",
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it("renders with default props", () => {
+    render(<Button {...defaultProps} />)
+    expect(screen.getByRole("button")).toHaveTextContent("Click me")
+  })
+
+  it("handles click events", () => {
+    render(<Button {...defaultProps} />)
+    fireEvent.click(screen.getByRole("button"))
+    expect(defaultProps.onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it("shows loading state", () => {
+    render(<Button {...defaultProps} isLoading />)
+    expect(screen.getByRole("button")).toBeDisabled()
+  })
+})
+```
+
+### Hook Testing
+
+```typescript
+// hooks/__tests__/use-counter.test.ts
+import { renderHook, act } from "@testing-library/react"
+import { useCounter } from "../use-counter"
+
+describe("useCounter", () => {
+  it("initializes with default value", () => {
+    const { result } = renderHook(() => useCounter())
+    expect(result.current.count).toBe(0)
+  })
+
+  it("increments counter", () => {
+    const { result } = renderHook(() => useCounter())
+
+    act(() => {
+      result.current.increment()
+    })
+
+    expect(result.current.count).toBe(1)
+  })
+})
+```
+
+## API Testing (MUST)
+
+### Route Handler Test
+
+```typescript
+// app/api/users/__tests__/route.test.ts
+import { GET, POST } from "../route"
+import { NextRequest } from "next/server"
+
+jest.mock("@/lib/db", () => ({
+  user: {
+    findMany: jest.fn().mockResolvedValue([{ id: "1", name: "User 1" }]),
+    create: jest.fn().mockResolvedValue({ id: "2", name: "New User" }),
+  },
+}))
+
+describe("Users API", () => {
+  it("GET returns users list", async () => {
+    const request = new NextRequest("http://localhost/api/users")
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+
+    const data = await response.json()
+    expect(data.data).toHaveLength(1)
+  })
+
+  it("POST creates a new user", async () => {
+    const request = new NextRequest("http://localhost/api/users", {
+      method: "POST",
+      body: JSON.stringify({ name: "New User", email: "new@example.com" }),
+    })
+
+    const response = await POST(request)
+    expect(response.status).toBe(201)
+  })
+})
+```
+
+## Test Utilities (MUST)
+
+### Providers Wrapper
+
+```typescript
+// lib/test-utils.tsx
+import { render } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+  },
+})
+
+export function renderWithProviders(ui: React.ReactElement) {
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  )
+}
+
+export * from "@testing-library/react"
+```
+
+### Mock Patterns
+
+```typescript
+// __mocks__/api-client.ts
+export const api = {
+  get: jest.fn(),
+  post: jest.fn(),
+  put: jest.fn(),
+  delete: jest.fn(),
+}
+
+// Reset before each test
+beforeEach(() => {
+  api.get.mockReset().mockResolvedValue({ data: [] })
+  api.post.mockReset().mockResolvedValue({ data: { id: "1" } })
+})
+```
+
+## Best Practices (MUST)
+
+### Testing Do's
+
+- Test behavior, not implementation
+- Write independent tests
+- Mock external dependencies
+- Test edge cases and errors
+- Use `data-testid` for targeting elements
+- Prefer user-centric queries (`getByRole`, `getByLabelText`)
+
+### Testing Don'ts
+
+- DO NOT test implementation details
+- DO NOT test third-party libraries
+- DO NOT overuse snapshots
+- DO NOT write brittle tests
+- DO NOT expose internal errors to clients
+
+## Coverage Target
+
+- Unit tests: 80%+ for components and utilities
+- API tests: all endpoints and error cases
+- Integration tests: critical user flows
+
+## Out of Scope
+
+- E2E testing with Playwright/Cypress
+- Visual regression testing
+- Performance testing
+- Load testing
