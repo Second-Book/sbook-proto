@@ -10,5 +10,19 @@
 			"path": "../textbook-marketplace-frontend"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"sqltools.connections": [
+			{
+				"ssh": "Disabled",
+				"previewLimit": 50,
+				"server": "localhost",
+				"port": 10543,
+				"driver": "PostgreSQL",
+				"database": "textbook",
+				"username": "textbook",
+				"name": "sbook",
+				"password": "textbook"
+			}
+		]
+	}
 }
