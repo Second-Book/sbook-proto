@@ -1,0 +1,392 @@
+---
+alwaysApply: false
+---
+
+# Python Django Guide (LLM Rulebook)
+
+## Purpose
+
+Django-specific patterns, structure, and conventions for Django REST Framework projects. Apply when working with Django apps, models, views, serializers, migrations, or tests. DO NOT apply to non-Django Python code.
+
+## Project Structure (MUST)
+
+### Django Apps Organization
+
+```
+textbook_marketplace/
+├── manage.py
+├── pytest.ini
+├── app_name/          # Django app
+│   ├── __init__.py
+│   ├── models.py
+│   ├── views.py
+│   ├── serializers.py
+│   ├── urls.py
+│   ├── admin.py
+│   ├── filters.py
+│   ├── tests.py
+│   ├── migrations/
+│   └── management/
+│       └── commands/
+└── project_name/      # Project settings
+    ├── settings.py
+    ├── settings_dev.py
+    ├── urls.py
+    ├── wsgi.py
+    └── asgi.py
+```
+
+### App Naming
+
+- Use lowercase with underscores: `marketplace`, `chat`, `api`
+- One app = one domain concern
+- Apps MUST be registered in `INSTALLED_APPS`
+
+## Models (MUST)
+
+### Model Definition
+
+```python
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+    """Model for users."""
+    telegram_id = models.CharField(max_length=255, null=True, blank=True)
+    is_seller = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self) -> str:
+        return self.username
+
+class Textbook(models.Model):
+    """Model for textbooks."""
+    
+    CONDITION_CHOICES = [
+        ('New', 'New'),
+        ('Used - Excellent', 'Used - Excellent'),
+        ('Used - Good', 'Used - Good'),
+    ]
+    
+    title = models.CharField(max_length=255)
+    author = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    seller = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="textbooks",
+        db_index=True
+    )
+    condition = models.CharField(
+        max_length=50,
+        choices=CONDITION_CHOICES,
+        default='Used - Good'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['price']),
+            models.Index(fields=['created_at']),
+        ]
+        ordering = ['-created_at']
+```
+
+### Model Best Practices
+
+- Use `db_index=True` for frequently queried fields
+- Define `__str__` method for all models
+- Use `related_name` for ForeignKey relationships
+- Add `Meta.ordering` for default queryset ordering
+- Use `choices` for constrained string fields
+- Add docstrings to model classes
+
+## Views (MUST)
+
+### DRF ViewSets
+
+```python
+from rest_framework import viewsets, permissions
+from rest_framework.permissions import IsAuthenticated, BasePermission
+from rest_framework.decorators import action
+
+class IsOwner(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.seller == request.user
+
+class TextbookViewSet(viewsets.ModelViewSet):
+    """Unified ViewSet for all textbook operations."""
+    queryset = Textbook.objects.all()
+    serializer_class = TextbookSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filterset_class = TextbookFilter
+    
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsOwner()]
+        return super().get_permissions()
+    
+    def perform_create(self, serializer):
+        serializer.save(seller=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def custom_action(self, request, pk=None):
+        textbook = self.get_object()
+        # Custom logic
+        return Response({'status': 'ok'})
+```
+
+### APIView Pattern
+
+```python
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+
+class TextbookDetailView(APIView):
+    def get(self, request, pk):
+        """Returns full description of a textbook by pk."""
+        textbook = get_object_or_404(Textbook, pk=pk)
+        serializer = TextbookSerializer(textbook)
+        return Response(serializer.data)
+```
+
+### Function-Based Views
+
+```python
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+@api_view(['GET'])
+def get_user_data(request):
+    user = request.user
+    serializer = UserSerializer(user)
+    return Response(serializer.data)
+```
+
+## Serializers (MUST)
+
+### ModelSerializer Pattern
+
+```python
+from rest_framework import serializers
+from django.core.validators import MinValueValidator, MaxValueValidator
+import bleach
+
+class TextbookSerializer(serializers.ModelSerializer):
+    seller = serializers.ReadOnlyField(source='seller.username')
+    price = serializers.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01), MaxValueValidator(99999.99)]
+    )
+
+    class Meta:
+        model = Textbook
+        fields = '__all__'
+    
+    def validate_description(self, value):
+        """Sanitize HTML/XSS."""
+        if value:
+            return bleach.clean(value, tags=[], strip=True)
+        return value
+        
+    def create(self, validated_data):
+        request = self.context.get('request')
+        seller = request.user
+        return Textbook.objects.create(seller=seller, **validated_data)
+```
+
+### Custom Field Serializers
+
+```python
+from versatileimagefield.serializers import VersatileImageFieldSerializer
+from django.conf import settings
+from urllib.parse import urljoin
+
+class AbsoluteVersatileImageFieldSerializer(VersatileImageFieldSerializer):
+    def to_representation(self, value):
+        data = super().to_representation(value)
+        if isinstance(data, dict):
+            return {
+                key: urljoin(settings.MEDIA_HOST, url)
+                for key, url in data.items()
+            }
+        return data
+```
+
+## Migrations (MUST)
+
+### Migration Structure
+
+- Migrations MUST be in `app_name/migrations/` directory
+- Migration files: `NNNN_migration_name.py`
+- DO NOT edit existing migrations after deployment
+- Use `python manage.py makemigrations` to create
+- Use `python manage.py migrate` to apply
+
+### Migration Best Practices
+
+```python
+# migrations/0001_initial.py
+from django.db import migrations, models
+
+class Migration(migrations.Migration):
+    initial = True
+    dependencies = []
+    
+    operations = [
+        migrations.CreateModel(
+            name='Textbook',
+            fields=[
+                ('id', models.BigAutoField(primary_key=True)),
+                ('title', models.CharField(max_length=255)),
+                ('price', models.DecimalField(max_digits=6, decimal_places=2)),
+            ],
+        ),
+        migrations.AddIndex(
+            model_name='textbook',
+            index=models.Index(fields=['price'], name='price_idx'),
+        ),
+    ]
+```
+
+## Testing (MUST)
+
+### Test File Structure
+
+Tests MUST be in `app_name/tests.py`:
+
+```python
+import pytest
+from django.contrib.auth import get_user_model
+from django.urls import reverse
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
+from .models import Textbook
+
+User = get_user_model()
+
+@pytest.fixture
+def seller() -> User:
+    yield User.objects.create_user(
+        id=1,
+        username='seller_name',
+        password='password',
+        is_seller=True
+    )
+
+@pytest.fixture
+def api_client(seller: User) -> APIClient:
+    client = APIClient()
+    token = AccessToken.for_user(seller)
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+    return client
+
+def test_textbook_list(api_client: APIClient):
+    url = reverse('textbook-list')
+    response = api_client.get(url)
+    assert response.status_code == 200
+```
+
+### pytest.ini Configuration
+
+```ini
+[pytest]
+DJANGO_SETTINGS_MODULE=textbook_marketplace.settings_dev
+python_files=tests.py
+addopts = --maxfail=1 --reuse-db --no-migrations
+testpaths = marketplace chat
+asyncio_default_fixture_loop_scope = function
+log_cli=true
+log_level=INFO
+```
+
+### Test Best Practices
+
+- Use `pytest.fixture` for test data setup
+- Use `APIClient` for API testing
+- Use `AccessToken.for_user()` for authenticated requests
+- Use `reverse()` for URL resolution
+- Test permissions, validation, and edge cases
+
+## URL Configuration (MUST)
+
+### App URLs
+
+```python
+# app_name/urls.py
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import TextbookViewSet
+
+router = DefaultRouter()
+router.register(r'textbooks', TextbookViewSet, basename='textbook')
+
+urlpatterns = [
+    path('api/', include(router.urls)),
+]
+```
+
+### Project URLs
+
+```python
+# project_name/urls.py
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/marketplace/', include('marketplace.urls')),
+    path('api/chat/', include('chat.urls')),
+]
+```
+
+## Permissions (MUST)
+
+### Custom Permissions
+
+```python
+from rest_framework.permissions import BasePermission
+
+class IsOwner(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.seller == request.user
+
+class IsSeller(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_seller
+```
+
+### Permission Usage
+
+```python
+class TextbookViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    def get_permissions(self):
+        if self.action in ['update', 'destroy']:
+            return [IsAuthenticated(), IsOwner()]
+        return super().get_permissions()
+```
+
+## Rate Limiting (MUST)
+
+```python
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    @method_decorator(ratelimit(key='ip', rate='10/m', method='POST', block=True))
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+```
+
+## Out of Scope
+
+- Django admin customization
+- Celery task queues
+- Django Channels WebSocket setup
+- Deployment configuration

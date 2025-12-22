@@ -15,6 +15,7 @@ Navigation for Python development rules. Apply when working with Python code.
 | Any Python code (style, types, architecture) | 501-python-development.mdc |
 | Writing tests, error handling, logging | 502-python-quality.mdc |
 | Package management, uv commands | 503-python-uv.mdc |
+| Django apps, models, views, serializers | 504-python-django.mdc |
 
 ## Cross-references
 

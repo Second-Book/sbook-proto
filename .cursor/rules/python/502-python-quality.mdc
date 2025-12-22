@@ -81,6 +81,7 @@ Configure in `pytest.ini`:
 ```ini
 [pytest]
 asyncio_mode = auto
+asyncio_default_fixture_loop_scope = function
 ```
 
 ```python
@@ -88,6 +89,29 @@ async def test_async_fetch() -> None:
     result = await fetch_data()
     assert result is not None
 ```
+
+### Django Testing (pytest.ini)
+
+For Django projects, configure pytest in `pytest.ini`:
+
+```ini
+[pytest]
+DJANGO_SETTINGS_MODULE=project_name.settings_dev
+python_files=tests.py
+addopts = --maxfail=1 --reuse-db --no-migrations
+testpaths = app1 app2
+asyncio_default_fixture_loop_scope = function
+log_cli=true
+log_level=INFO
+log_format = %(asctime)s %(levelname)s %(message)s
+log_date_format = %Y-%m-%d %H:%M:%S
+```
+
+- `DJANGO_SETTINGS_MODULE`: Django settings module for tests
+- `python_files=tests.py`: Test files naming pattern
+- `--reuse-db`: Reuse test database between runs
+- `--no-migrations`: Skip migrations in tests (faster)
+- `testpaths`: List of Django apps with tests
 
 ### Coverage
 
@@ -252,6 +276,76 @@ logger.info(
         "amount": order.amount,
     }
 )
+```
+
+### structlog (Django Projects)
+
+For Django projects, use `structlog` for structured JSON logging:
+
+```python
+# settings.py
+import structlog
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': structlog.stdlib.ProcessorFormatter,
+            'processor': structlog.processors.JSONRenderer(),
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'json',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer(),
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+```
+
+Usage in code:
+
+```python
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+def create_textbook(title: str, seller_id: int) -> Textbook:
+    logger.info(
+        "Creating textbook",
+        title=title,
+        seller_id=seller_id,
+    )
+    # ... create logic
+    logger.info(
+        "Textbook created",
+        textbook_id=textbook.id,
+        title=title,
+    )
+    return textbook
 ```
 
 ### Exception Logging

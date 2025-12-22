@@ -37,11 +37,25 @@ src/
 │       └── layout.tsx
 ├── components/
 │   ├── ui/            # Base components
-│   └── features/      # Feature-specific components
-├── lib/
-│   ├── utils.ts       # General utilities
-│   ├── types.ts       # Shared type definitions
-│   └── constants.ts   # Application constants
+│   ├── features/      # Feature-specific components
+│   └── [ComponentName]/
+│       ├── ComponentName.tsx
+│       └── ComponentNameStyle.module.css
+├── services/          # API clients and services
+│   ├── api.ts         # Axios client configuration
+│   ├── authService.ts
+│   └── [feature]Service.ts
+├── utils/             # Utilities and helpers
+│   ├── actions.ts     # Server actions
+│   ├── functions.ts    # Helper functions
+│   ├── schemas.ts     # Zod schemas
+│   └── types.ts       # TypeScript types
+├── hooks/             # Custom React hooks
+│   └── use[Feature].tsx
+├── stores/            # Zustand stores
+│   └── [feature]Store.ts
+├── providers/         # Context providers
+│   └── [Feature]Provider.tsx
 └── styles/
     └── globals.css
 ```
@@ -49,15 +63,12 @@ src/
 ### Test Directory
 
 ```
-test/
-├── unit/
-│   ├── components/
-│   │   └── ui/
-│   │       └── Button.test.tsx
-│   └── lib/
-│       └── utils.test.ts
-└── integration/
-    └── auth-flow.test.tsx
+e2e/                   # Playwright E2E tests
+└── [feature].spec.ts
+
+src/components/
+└── __tests__/         # Component unit tests
+    └── ComponentName.test.tsx
 ```
 
 ## Naming Conventions (MUST)

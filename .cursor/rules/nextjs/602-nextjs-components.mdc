@@ -14,11 +14,15 @@ UI system, shadcn/ui integration, and Tailwind CSS styling for Next.js applicati
 
 ```
 components/
-├── ui/           # shadcn/ui base components
-├── custom/       # Custom components extending ui/
-├── features/     # Feature-specific components
-├── layout/       # Layout components
-└── providers/    # Context providers
+├── ui/                    # shadcn/ui base components
+├── [ComponentName]/       # Component with CSS module
+│   ├── ComponentName.tsx
+│   └── ComponentNameStyle.module.css
+├── features/              # Feature-specific components
+│   └── [Feature]/
+│       └── [Component].tsx
+├── layout/               # Layout components
+└── providers/            # Context providers (moved to src/providers/)
 ```
 
 ### shadcn/ui Setup
@@ -431,6 +435,74 @@ export function DialogWrapper({ trigger, title, children }: DialogWrapperProps) 
   )
 }
 ```
+
+## CSS Modules (MUST)
+
+### Module Pattern
+
+```typescript
+// components/TextbookCard/TextbookCard.tsx
+import styles from './TextbookCardStyle.module.css';
+
+export function TextbookCard({ title, price }: TextbookCardProps) {
+  return (
+    <div className={styles.card}>
+      <h3 className={styles.title}>{title}</h3>
+      <p className={styles.price}>{price}</p>
+    </div>
+  );
+}
+```
+
+```css
+/* components/TextbookCard/TextbookCardStyle.module.css */
+.card {
+  @apply rounded-lg border p-4 shadow-md;
+}
+
+.title {
+  @apply text-lg font-semibold mb-2;
+}
+
+.price {
+  @apply text-xl font-bold text-primary;
+}
+```
+
+### Best Practices
+
+- Use CSS modules for component-specific styles
+- Combine with Tailwind using `@apply`
+- Keep module files co-located with components
+- Use descriptive class names
+
+## Icons (MUST)
+
+### FontAwesome Integration
+
+```typescript
+// components/UserProfileCard.tsx
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faHeart, faMessage } from "@fortawesome/free-regular-svg-icons";
+import { faBook } from "@fortawesome/free-solid-svg-icons";
+
+export function UserProfileCard() {
+  return (
+    <div>
+      <FontAwesomeIcon icon={faBook} />
+      <FontAwesomeIcon icon={faHeart} />
+      <FontAwesomeIcon icon={faMessage} />
+    </div>
+  );
+}
+```
+
+### Icon Organization
+
+- Use `@fortawesome/free-solid-svg-icons` for solid icons
+- Use `@fortawesome/free-regular-svg-icons` for regular icons
+- Use `@fortawesome/free-brands-svg-icons` for brand icons
+- Import only needed icons to reduce bundle size
 
 ## Out of Scope
 

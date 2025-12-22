@@ -32,6 +32,7 @@ Root navigation for all cursor rules. Apply to any project using this ruleset.
 | python/501-python-development.mdc | Code style, types, architecture |
 | python/502-python-quality.mdc | Testing, errors, logging |
 | python/503-python-uv.mdc | UV tooling |
+| python/504-python-django.mdc | Django apps, models, views, serializers |
 
 ## Next.js (6xx)
 

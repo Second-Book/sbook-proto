@@ -18,8 +18,8 @@ Navigation for Next.js development rules. Apply when working with Next.js applic
 
 ## Technology Stack
 
-- Next.js 14.x (App Router)
-- React 18.x
+- Next.js 16.x (App Router)
+- React 19.x
 - TypeScript 5.x
 - Tailwind CSS 4.x
 - shadcn/ui
