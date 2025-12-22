@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../textbook-marketplace-backend"
+		},
+		{
+			"path": "../textbook-marketplace-frontend"
+		}
+	],
+	"settings": {}
+}
