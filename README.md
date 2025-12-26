@@ -43,8 +43,8 @@ Database connection pre-configured:
 - **Driver**: PostgreSQL
 - **Host**: `localhost`
 - **Port**: `10543`
-- **Database**: `textbook`
-- **Username**: `textbook`
+- **Database**: `sbook`
+- **Username**: `sbook`
 - **Password**: `textbook`
 
 MUST start backend database before using SQLTools (see Local Development Setup).

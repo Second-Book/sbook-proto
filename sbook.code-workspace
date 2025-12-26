@@ -18,8 +18,8 @@
 				"server": "localhost",
 				"port": 10543,
 				"driver": "PostgreSQL",
-				"database": "textbook",
-				"username": "textbook",
+				"database": "sbook",
+				"username": "sbook",
 				"name": "sbook",
 				"password": "textbook"
 			}
