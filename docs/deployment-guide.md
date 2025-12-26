@@ -312,11 +312,19 @@ Nginx is now configured with HTTP and HTTPS. Next step: run first deployment (se
 
 Deploy from any branch using workflow_dispatch:
 
-1. Go to repository → Actions tab
-2. Select "Deploy to Production" workflow
-3. Click "Run workflow" button (top right)
-4. Select branch to deploy from (default: current branch)
-5. Click "Run workflow" button
+**Backend:**
+1. Go to: <https://github.com/Second-Book/sbook-backend/actions>
+2. Select "Deploy to Production" workflow in left sidebar
+3. Click "Run workflow" dropdown (top right)
+4. Select branch to deploy from
+5. Click green "Run workflow" button
+
+**Frontend:**
+1. Go to: <https://github.com/Second-Book/sbook-frontend/actions>
+2. Select "Deploy to Production" workflow in left sidebar
+3. Click "Run workflow" dropdown (top right)
+4. Select branch to deploy from
+5. Click green "Run workflow" button
 
 Workflow deploys code from selected branch. Use for testing changes before merging to `main`.
 
