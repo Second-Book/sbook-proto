@@ -31,8 +31,10 @@ sudo apt update
 **Install system packages:**
 
 ```bash
-sudo apt install -y python3 python3-venv python3-pip postgresql postgresql-contrib redis-server nginx supervisor git curl rsync
+sudo apt install -y python3 python3-venv python3-pip postgresql postgresql-contrib redis-server nginx supervisor git curl rsync libmagic1
 ```
+
+Note: `libmagic1` is required for `django-versatileimagefield` which uses `python-magic` library.
 
 **Install Node.js 20 (using NodeSource repository):**
 
