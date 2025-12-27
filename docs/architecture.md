@@ -190,14 +190,17 @@ Nginx (Port 80/443)
 
 **Backend (Supervisor):**
 
-- Command: `daphne -b 127.0.0.1 -p 8000 textbook_marketplace.asgi:application`
+- Command: `/opt/sbook/backend/deploy/run.sh` (wrapper script)
+- Wrapper script runs: `daphne -b ${BACKEND_HOST} -p ${BACKEND_PORT} textbook_marketplace.asgi:application`
+- Host and port configured via environment variables: `BACKEND_HOST` (default: `127.0.0.1`), `BACKEND_PORT` (default: `8000`)
+- Environment variables passed through supervisor `environment=` configuration
 - Auto-restart: enabled
 - Logs: `/opt/sbook/backend/logs/`
 
 **Frontend (PM2):**
 
-- Command: `pnpm start` (Next.js production server)
-- Port: 3000 (internal)
+- Command: `node_modules/.bin/next start` (configured via `sbook-frontend.ecosystem.config.js`)
+- Port: configured via `FRONTEND_PORT` environment variable (default: `3000`)
 - Auto-restart: enabled
 - Logs: `/opt/sbook/frontend/logs/`
 

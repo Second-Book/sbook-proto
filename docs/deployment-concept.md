@@ -43,7 +43,7 @@ graph LR
 │   ├── textbook_marketplace/   # Application code
 │   │   └── .env               # Symlink to ../.env (for python-decouple)
 │   ├── deploy/                # Deployment scripts
-│   │   └── run.sh             # Supervisor wrapper script (loads .env)
+│   │   └── run.sh             # Supervisor wrapper script (runs daphne with BACKEND_HOST/BACKEND_PORT)
 │   ├── .env                   # Environment variables (generated on deploy, chmod 600)
 │   ├── media/                 # User uploads (persistent)
 │   ├── staticfiles/           # Collected static files
@@ -100,12 +100,13 @@ Benefits:
 **Supervisor Configuration:**
 
 - Process name: `sbook-backend`
-- Command: `/opt/sbook/backend/deploy/run.sh` (wrapper script that loads `.env` and runs daphne)
+- Command: `/opt/sbook/backend/deploy/run.sh` (wrapper script that runs daphne)
 - Working directory: `/opt/sbook/backend/textbook_marketplace`
+- Environment variables: `BACKEND_HOST` (default: `127.0.0.1`), `BACKEND_PORT` (default: `8000`)
 - Auto-restart: `true`
 - Logs: `/opt/sbook/backend/logs/`
 
-The wrapper script (`run.sh`) loads environment variables from `/opt/sbook/backend/.env` before starting daphne, ensuring all secrets are available to the Django application.
+The wrapper script (`run.sh`) reads `BACKEND_HOST` and `BACKEND_PORT` from environment variables (passed through supervisor `environment=` configuration) and runs daphne with these values. Django reads `.env` file automatically using `python-decouple` library, so no explicit loading is needed in the wrapper script.
 
 ### Frontend Deployment
 
@@ -125,8 +126,9 @@ The wrapper script (`run.sh`) loads environment variables from `/opt/sbook/backe
 **PM2 Configuration:**
 
 - Process name: `sbook-frontend`
-- Command: `pnpm start`
+- Command: `node_modules/.bin/next start` (configured via `sbook-frontend.ecosystem.config.js`)
 - Working directory: `/opt/sbook/frontend`
+- Port: configured via `FRONTEND_PORT` environment variable (default: `3000`)
 - Instances: 1 (can be scaled)
 - Auto-restart: `true`
 - Logs: `/opt/sbook/frontend/logs/`
@@ -147,13 +149,12 @@ The wrapper script (`run.sh`) loads environment variables from `/opt/sbook/backe
 **GitHub Variables (non-sensitive):**
 
 - `DEPLOY_PATH` - `/opt/sbook`
-- `BACKEND_PORT` - `8000`
-- `FRONTEND_PORT` - `3000`
+- `BACKEND_HOST` - Backend bind address (optional, default: `127.0.0.1`)
+- `BACKEND_PORT` - `8000` (default, can be overridden)
+- `FRONTEND_PORT` - `3000` (default, can be overridden)
 - `NODE_VERSION` - `18` or `20`
 - `PYTHON_VERSION` - `3.12`
 - `DJANGO_SUPERUSER_EMAIL` - Email for Django superuser (created automatically)
-- `DJANGO_SUPERUSER_EMAIL` - Email for Django superuser (created automatically)
-- `DJANGO_SUPERUSER_PASSWORD` - Password for Django superuser (created automatically)
 
 **Server Environment Files:**
 
@@ -165,9 +166,9 @@ The wrapper script (`run.sh`) loads environment variables from `/opt/sbook/backe
 - Generated automatically in GitHub Actions from Secrets and Variables
 - Deployed to server via `scp` with permissions `chmod 600`
 - Contains all Django settings (database, Redis, secrets, superuser credentials)
-- Read by Django using `python-decouple` library
+- Read by Django using `python-decouple` library (automatic, no explicit loading needed)
 - Symlinked to `textbook_marketplace/.env` for management commands
-- Loaded by supervisor wrapper script (`run.sh`) before starting daphne
+- NOT loaded by supervisor wrapper script (`run.sh`) - Django reads it automatically via python-decouple
 
 **Environment variables in `.env`:**
 

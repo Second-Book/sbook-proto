@@ -89,9 +89,11 @@ sudo mkdir -p /opt/sbook/{backend,frontend,conf}
 **Create symlinks:**
 
 ```bash
-sudo ln -sf /opt/sbook/conf/sbook.nginx.conf /etc/nginx/sites-enabled/sbook
+sudo ln -sf /opt/sbook/conf/sbook.nginx.conf /etc/nginx/sites-enabled/sbook.nginx.conf
 sudo ln -sf /opt/sbook/conf/sbook-backend.supervisor.conf /etc/supervisor/conf.d/sbook-backend.conf
 ```
+
+Note: Supervisor configuration is dynamically updated during deployment with `BACKEND_HOST` and `BACKEND_PORT` values via `sed`.
 
 ### Database Setup
 
@@ -239,8 +241,9 @@ Before first deployment, MUST complete:
 Configure at organization level (<https://github.com/organizations/Second-Book/settings/variables/actions>):
 
 - `DEPLOY_PATH` - `/opt/sbook`
-- `BACKEND_PORT` - `8000`
-- `FRONTEND_PORT` - `3000`
+- `BACKEND_HOST` - Backend bind address (optional, default: `127.0.0.1`)
+- `BACKEND_PORT` - `8000` (default, can be overridden)
+- `FRONTEND_PORT` - `3000` (default, can be overridden)
 - `NEXT_PUBLIC_API_BASE_URL` - `https://api.sb.maria.rezvov.com`
 - `NEXT_PUBLIC_WS_URL` - `wss://api.sb.maria.rezvov.com`
 - `DB_NAME` - `sbook` (PostgreSQL database name)
@@ -312,7 +315,10 @@ Nginx is now configured with HTTP and HTTPS. Next step: run first deployment (se
   2. Build (collect static files)
   3. Generate `.env` file from GitHub Secrets/Variables
   4. Deploy `.env` to server with `chmod 600`
-  5. Execute deployment script: `deploy/deploy.sh`
+  5. Execute deployment script: `deploy/deploy.sh`:
+     - Check system dependencies (python3, curl, sudo, uv) - fail fast if missing
+     - Create `static` directory before running collectstatic
+     - Dynamically update supervisor configuration with `BACKEND_HOST` and `BACKEND_PORT` via sed
 - First deployment runs automatically on first push to trigger branch
 
 **Frontend repository (`sbook-frontend`):**
@@ -321,7 +327,10 @@ Nginx is now configured with HTTP and HTTPS. Next step: run first deployment (se
 - Triggers:
   - Push to `main` branch (automatic deployment)
   - Manual trigger via `workflow_dispatch` (for testing/debugging)
-- Uses SSH deployment script: `deploy/deploy.sh`
+- Uses SSH deployment script: `deploy/deploy.sh`:
+  - Check system dependencies (node, curl, pnpm, pm2) - fail fast if missing
+  - Uses `pnpm install --no-frozen-lockfile` to handle pnpm version differences
+  - Updates PM2 configuration with `FRONTEND_PORT` environment variable
 - First deployment runs automatically on first push to `main`
 
 **Manual deployment for debugging:**
@@ -391,11 +400,10 @@ Note: `.env` file must be present in `/opt/sbook/backend/.env` with proper permi
 
 1. SSH to server
 2. Pull latest code: `cd /opt/sbook/frontend && git pull origin main`
-3. Install dependencies: `pnpm install`
+3. Install dependencies: `pnpm install --no-frozen-lockfile` (allows lockfile regeneration if pnpm versions differ)
 4. Build application: `pnpm build`
-5. Install production dependencies: `pnpm install --prod`
-6. Restart PM2: `pm2 restart sbook-frontend`
-7. Verify health: `curl http://127.0.0.1:3000`
+5. Restart PM2: `pm2 restart sbook-frontend`
+6. Verify health: `curl http://127.0.0.1:3000` (or use `${FRONTEND_PORT}` if custom port)
 
 **Automated update:**
 
