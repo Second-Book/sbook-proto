@@ -31,7 +31,7 @@ sudo apt update
 **Install system packages:**
 
 ```bash
-sudo apt install -y python3 python3-venv python3-pip postgresql postgresql-contrib redis-server nginx supervisor git curl
+sudo apt install -y python3 python3-venv python3-pip postgresql postgresql-contrib redis-server nginx supervisor git curl rsync
 ```
 
 **Install Node.js 20 (using NodeSource repository):**
@@ -90,7 +90,6 @@ sudo mkdir -p /opt/sbook/{backend,frontend,conf}
 sudo ln -sf /opt/sbook/conf/sbook.nginx.conf /etc/nginx/sites-enabled/sbook
 sudo ln -sf /opt/sbook/conf/sbook-backend.supervisor.conf /etc/supervisor/conf.d/sbook-backend.conf
 ```
-
 
 ### Database Setup
 
@@ -174,7 +173,7 @@ Before first deployment, MUST complete:
 
 1. **Configure GitHub Secrets and Variables**
 2. **Configure Nginx**
-3. **Run first deployment** (push to `main`, or use manual trigger via workflow_dispatch)
+3. **Run first deployment** (push to trigger branch, or use manual trigger via workflow_dispatch)
 
 ### GitHub Organization Secrets and Variables
 
@@ -215,7 +214,7 @@ Before first deployment, MUST complete:
 2. **Other secrets:**
 
    **Requirements:**
-   
+
    - `SSH_HOST` - Server IP address or hostname (e.g., `82.146.48.165`, `sbook-dev`)
    - `SSH_USER` - SSH username (e.g., `sbook`)
    - `DJANGO_SECRET_KEY` - Django secret key
@@ -231,6 +230,7 @@ Before first deployment, MUST complete:
      - Minimum 12 characters
      - MUST contain uppercase, lowercase, numbers, and special characters
      - MUST be unique and not reused
+   - `DJANGO_SUPERUSER_PASSWORD` - Password for Django superuser (created automatically on deployment)
 
 **Variables (non-sensitive data):**
 
@@ -241,6 +241,14 @@ Configure at organization level (<https://github.com/organizations/Second-Book/s
 - `FRONTEND_PORT` - `3000`
 - `NEXT_PUBLIC_API_BASE_URL` - `https://api.sb.maria.rezvov.com`
 - `NEXT_PUBLIC_WS_URL` - `wss://api.sb.maria.rezvov.com`
+- `DB_NAME` - `sbook` (PostgreSQL database name)
+- `DB_USER` - `sbook` (PostgreSQL user name)
+- `DB_HOST` - `localhost` (PostgreSQL host)
+- `DB_PORT` - `5432` (PostgreSQL port)
+- `REDIS_HOST` - `localhost` (Redis host)
+- `REDIS_PORT` - `6379` (Redis port)
+- `FRONTEND_URL` - `https://sb.maria.rezvov.com` (Frontend URL for CORS)
+- `DJANGO_SUPERUSER_EMAIL` - Email address for Django superuser (created automatically on deployment)
 
 ### Nginx Configuration
 
@@ -270,6 +278,7 @@ sudo certbot --nginx -d sb.maria.rezvov.com -d api.sb.maria.rezvov.com
 ```
 
 Certbot automatically:
+
 - Creates SSL certificates
 - Adds HTTPS server blocks with SSL configuration
 - Adds HTTP to HTTPS redirects
@@ -294,10 +303,15 @@ Nginx is now configured with HTTP and HTTPS. Next step: run first deployment (se
 
 - Workflow file: `.github/workflows/deploy.yml`
 - Triggers:
-  - Push to `main` branch (automatic deployment)
+  - Push to `feature/github_deploy` branch (automatic deployment)
   - Manual trigger via `workflow_dispatch` (for testing/debugging)
-- Uses SSH deployment script: `deploy/deploy.sh`
-- First deployment runs automatically on first push to `main`
+- Workflow steps:
+  1. Run tests with PostgreSQL and Redis services
+  2. Build (collect static files)
+  3. Generate `.env` file from GitHub Secrets/Variables
+  4. Deploy `.env` to server with `chmod 600`
+  5. Execute deployment script: `deploy/deploy.sh`
+- First deployment runs automatically on first push to trigger branch
 
 **Frontend repository (`sbook-frontend`):**
 
@@ -313,6 +327,7 @@ Nginx is now configured with HTTP and HTTPS. Next step: run first deployment (se
 Deploy from any branch using workflow_dispatch:
 
 **Backend:**
+
 1. Go to: <https://github.com/Second-Book/sbook-backend/actions>
 2. Select "Deploy to Production" workflow in left sidebar
 3. Click "Run workflow" dropdown (top right)
@@ -320,6 +335,7 @@ Deploy from any branch using workflow_dispatch:
 5. Click green "Run workflow" button
 
 **Frontend:**
+
 1. Go to: <https://github.com/Second-Book/sbook-frontend/actions>
 2. Select "Deploy to Production" workflow in left sidebar
 3. Click "Run workflow" dropdown (top right)
@@ -328,13 +344,22 @@ Deploy from any branch using workflow_dispatch:
 
 Workflow deploys code from selected branch. Use for testing changes before merging to `main`.
 
-**Create Django superuser (after first backend deployment):**
+**Superuser creation:**
+
+Superuser is created automatically during deployment using the `ensure_superuser` management command. The command is idempotent - it will only create the superuser if it doesn't already exist. Credentials are taken from GitHub Variables and Secrets:
+
+- `DJANGO_SUPERUSER_EMAIL` (Variable)
+- `DJANGO_SUPERUSER_PASSWORD` (Secret)
+
+If superuser needs to be created manually:
 
 ```bash
 ssh sbook-dev
-cd /opt/sbook/backend
-uv run python textbook_marketplace/manage.py createsuperuser
+cd /opt/sbook/backend/textbook_marketplace
+uv run python manage.py ensure_superuser
 ```
+
+Note: This requires `.env` file to be present with `DJANGO_SUPERUSER_EMAIL` and `DJANGO_SUPERUSER_PASSWORD` variables.
 
 ## Updating Server
 
@@ -343,16 +368,19 @@ uv run python textbook_marketplace/manage.py createsuperuser
 **Manual update steps:**
 
 1. SSH to server
-2. Pull latest code: `cd /opt/sbook/backend && git pull origin main`
+2. Pull latest code: `cd /opt/sbook/backend && git pull origin feature/github_deploy` (or current branch)
 3. Install dependencies: `uv sync`
-4. Run migrations: `uv run python textbook_marketplace/manage.py migrate`
-5. Collect static files: `uv run python textbook_marketplace/manage.py collectstatic --noinput`
-6. Restart supervisor: `supervisorctl restart sbook-backend`
-7. Verify health: `curl http://127.0.0.1:8000/api/health/`
+4. Run migrations: `cd textbook_marketplace && uv run python manage.py migrate` (reads `.env` from parent directory)
+5. Collect static files: `uv run python manage.py collectstatic --noinput`
+6. Ensure superuser exists: `uv run python manage.py ensure_superuser`
+7. Restart supervisor: `supervisorctl restart sbook-backend`
+8. Verify health: `curl http://127.0.0.1:8000/api/health/`
+
+Note: `.env` file must be present in `/opt/sbook/backend/.env` with proper permissions (`chmod 600`).
 
 **Automated update:**
 
-- Push to `main` branch triggers GitHub Actions
+- Push to `feature/github_deploy` branch triggers GitHub Actions (temporary, will be changed to `main`)
 - Deployment script handles all steps automatically
 
 ### Frontend Update
@@ -394,7 +422,8 @@ uv run python textbook_marketplace/manage.py createsuperuser
 - SSH connection: `ssh $SSH_USER@$SSH_HOST`
 - Server disk space: `df -h`
 - Application logs: `/opt/sbook/backend/logs/` (backend), `/opt/sbook/frontend/logs/` (frontend)
-- Environment variables: verify configuration files contain required values
+- Environment variables: verify `.env` file exists at `/opt/sbook/backend/.env` with proper permissions (`chmod 600`)
+- Check `.env` file: `ls -la /opt/sbook/backend/.env` (should show `-rw-------` permissions)
 
 ### Service Won't Start
 

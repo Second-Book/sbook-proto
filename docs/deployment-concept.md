@@ -10,9 +10,9 @@ Three separate GitHub repositories:
 
 ## Deployment Trigger
 
-Automatic deployment on push to `main` branch:
+Automatic deployment:
 
-- Backend: Deploys when `sbook-backend` main branch is updated
+- Backend: Deploys when `sbook-backend` `feature/github_deploy` branch is updated (temporary, will be changed to `main`)
 - Frontend: Deploys when `sbook-frontend` main branch is updated
 - Independent deployments (can deploy one without the other)
 
@@ -20,13 +20,17 @@ Automatic deployment on push to `main` branch:
 
 ```mermaid
 graph LR
-    A[Push to main] --> B[GitHub Actions Triggered]
-    B --> C[Build & Test]
-    C --> D[SSH to Server]
-    D --> E[Deploy Files]
-    E --> F[Run Migrations]
-    F --> G[Restart Services]
-    G --> H[Health Check]
+    A[Push to branch] --> B[GitHub Actions Triggered]
+    B --> C[Run Tests]
+    C --> D[Build]
+    D --> E[Generate .env]
+    E --> F[Deploy .env to Server]
+    F --> G[SSH to Server]
+    G --> H[Deploy Files]
+    H --> I[Run Migrations]
+    I --> J[Ensure Superuser]
+    J --> K[Restart Services]
+    K --> L[Health Check]
 ```
 
 ## Server Architecture
@@ -37,7 +41,11 @@ graph LR
 /opt/sbook/
 ├── backend/                    # Django application
 │   ├── textbook_marketplace/   # Application code
-│   ├── media/                   # User uploads (persistent)
+│   │   └── .env               # Symlink to ../.env (for python-decouple)
+│   ├── deploy/                # Deployment scripts
+│   │   └── run.sh             # Supervisor wrapper script (loads .env)
+│   ├── .env                   # Environment variables (generated on deploy, chmod 600)
+│   ├── media/                 # User uploads (persistent)
 │   ├── staticfiles/           # Collected static files
 │   └── logs/                  # Application logs
 ├── frontend/                   # Next.js application
@@ -73,24 +81,31 @@ Benefits:
 
 1. Checkout code (clone repository, checkout main branch)
 2. Setup environment (Python 3.12, uv package manager, install dependencies: `uv sync`)
-3. Build & test (optional: `uv run pytest`, collect static files: `python manage.py collectstatic --noinput`)
-4. Deploy to server:
+3. Run tests (`uv run pytest` with PostgreSQL and Redis services)
+4. Collect static files: `python manage.py collectstatic --noinput`
+5. Generate `.env` file from GitHub Secrets/Variables
+6. Deploy `.env` to server (`/opt/sbook/backend/.env`) with `chmod 600`
+7. Deploy to server:
    - SSH connection to server
-   - Copy application files to `/opt/sbook/backend/`
+   - Copy application files to `/opt/sbook/backend/` (rsync, excludes `.env`)
    - Install dependencies: `uv sync`
-   - Run database migrations: `python manage.py migrate`
+   - Create symlink from `textbook_marketplace/.env` to `../.env` (for python-decouple)
+   - Run database migrations: `python manage.py migrate` (reads `.env` automatically)
    - Collect static files: `python manage.py collectstatic --noinput`
+   - Ensure superuser exists: `python manage.py ensure_superuser` (idempotent)
    - Update supervisor configuration
    - Reload supervisor: `supervisorctl reread && supervisorctl update && supervisorctl restart sbook-backend`
-5. Health check: verify backend responding: `curl http://127.0.0.1:8000/api/health/`
+8. Health check: verify backend responding: `curl http://127.0.0.1:8000/api/health/`
 
 **Supervisor Configuration:**
 
 - Process name: `sbook-backend`
-- Command: `daphne -b 127.0.0.1 -p 8000 textbook_marketplace.asgi:application`
+- Command: `/opt/sbook/backend/deploy/run.sh` (wrapper script that loads `.env` and runs daphne)
 - Working directory: `/opt/sbook/backend/textbook_marketplace`
 - Auto-restart: `true`
 - Logs: `/opt/sbook/backend/logs/`
+
+The wrapper script (`run.sh`) loads environment variables from `/opt/sbook/backend/.env` before starting daphne, ensuring all secrets are available to the Django application.
 
 ### Frontend Deployment
 
@@ -127,6 +142,7 @@ Benefits:
 - `SSH_USER` - SSH username
 - `DJANGO_SECRET_KEY` - Django secret key
 - `DB_PASSWORD` - PostgreSQL database password
+- `DJANGO_SUPERUSER_PASSWORD` - Password for Django superuser (created automatically)
 
 **GitHub Variables (non-sensitive):**
 
@@ -135,18 +151,30 @@ Benefits:
 - `FRONTEND_PORT` - `3000`
 - `NODE_VERSION` - `18` or `20`
 - `PYTHON_VERSION` - `3.12`
+- `DJANGO_SUPERUSER_EMAIL` - Email for Django superuser (created automatically)
+- `DJANGO_SUPERUSER_EMAIL` - Email for Django superuser (created automatically)
+- `DJANGO_SUPERUSER_PASSWORD` - Password for Django superuser (created automatically)
 
 **Server Environment Files:**
 
-- Backend: `/opt/sbook/backend/.env`
+- Backend: `/opt/sbook/backend/.env` (generated automatically during deployment)
 - Frontend: `/opt/sbook/frontend/.env`
 
-Environment files managed on server (not in repository) and contain:
+**Backend `.env` file:**
 
-- Database connection strings
-- API keys and secrets
-- Service URLs
-- Feature flags
+- Generated automatically in GitHub Actions from Secrets and Variables
+- Deployed to server via `scp` with permissions `chmod 600`
+- Contains all Django settings (database, Redis, secrets, superuser credentials)
+- Read by Django using `python-decouple` library
+- Symlinked to `textbook_marketplace/.env` for management commands
+- Loaded by supervisor wrapper script (`run.sh`) before starting daphne
+
+**Environment variables in `.env`:**
+
+- Database connection strings (`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`)
+- Redis configuration (`REDIS_HOST`, `REDIS_PORT`)
+- Django settings (`DJANGO_SECRET_KEY`, `DEBUG`, `FRONTEND_URL`)
+- Superuser credentials (`DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD`)
 
 ### Nginx Configuration
 
@@ -190,9 +218,10 @@ Environment files managed on server (not in repository) and contain:
 **Backend deployment includes:**
 
 1. Backup current database (optional, recommended for production)
-2. Run migrations: `python manage.py migrate`
-3. Verify migration success
-4. If migration fails, deployment is aborted
+2. Run migrations: `python manage.py migrate` (reads `.env` automatically)
+3. Ensure superuser exists: `python manage.py ensure_superuser` (idempotent, creates if missing)
+4. Verify migration success
+5. If migration fails, deployment is aborted
 
 **Migration Requirements:**
 
@@ -213,8 +242,12 @@ Environment files managed on server (not in repository) and contain:
 ### Secrets Management
 
 - Secrets stored in GitHub Secrets (encrypted)
-- Environment variables on server (`.env` files)
+- `.env` file generated automatically from GitHub Secrets/Variables during deployment
+- `.env` file deployed to server with restricted permissions (`chmod 600`)
+- Environment variables loaded by supervisor wrapper script and Django `python-decouple`
 - DO NOT store secrets in repository or deployment scripts
+- DO NOT manually edit `.env` on server - it is regenerated on each deployment
+- Secrets rotation: update GitHub Secrets, then redeploy to regenerate `.env`
 - Secrets rotation process MUST be documented
 
 ### Network Security
