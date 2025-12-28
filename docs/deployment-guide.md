@@ -627,7 +627,7 @@ psql -U $DB_USER -d $DB_NAME < /opt/sbook/backups/db_TIMESTAMP.sql
 **Backup:**
 
 ```bash
-tar -czf /opt/sbook/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz /opt/sbook/backend/media/
+tar -czf /opt/sbook/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz /opt/sbook/backend/textbook_marketplace/media/
 ```
 
 **Restore:**

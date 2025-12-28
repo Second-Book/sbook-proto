@@ -41,11 +41,11 @@ graph LR
 /opt/sbook/
 ├── backend/                    # Django application
 │   ├── textbook_marketplace/   # Application code
-│   │   └── .env               # Symlink to ../.env (for python-decouple)
+│   │   ├── .env               # Symlink to ../.env (for python-decouple)
+│   │   ├── media/             # User uploads (persistent)
+│   │   └── staticfiles/       # Collected static files
 │   ├── deploy/                # Deployment scripts
 │   ├── .env                   # Environment variables (generated on deploy, chmod 600)
-│   ├── media/                 # User uploads (persistent)
-│   ├── staticfiles/           # Collected static files
 │   └── logs/                  # Application logs
 ├── frontend/                   # Next.js application
 │   ├── .next/                 # Build output
