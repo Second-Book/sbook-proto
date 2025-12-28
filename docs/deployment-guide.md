@@ -308,7 +308,7 @@ Nginx is now configured with HTTP and HTTPS. Next step: run first deployment (se
 
 - Workflow file: `.github/workflows/deploy.yml`
 - Triggers:
-  - Push to `feature/github_deploy` branch (automatic deployment)
+  - Push to `main` branch (automatic deployment)
   - Manual trigger via `workflow_dispatch` (for testing/debugging)
 - Workflow steps:
   1. Run tests with PostgreSQL and Redis services
@@ -379,7 +379,7 @@ Note: This requires `.env` file to be present with `DJANGO_SUPERUSER_EMAIL` and 
 **Manual update steps:**
 
 1. SSH to server
-2. Pull latest code: `cd /opt/sbook/backend && git pull origin feature/github_deploy` (or current branch)
+2. Pull latest code: `cd /opt/sbook/backend && git pull origin main`
 3. Install dependencies: `uv sync`
 4. Run migrations: `cd textbook_marketplace && uv run python manage.py migrate` (reads `.env` from parent directory)
 5. Collect static files: `uv run python manage.py collectstatic --noinput`
@@ -391,7 +391,7 @@ Note: `.env` file must be present in `/opt/sbook/backend/.env` with proper permi
 
 **Automated update:**
 
-- Push to `feature/github_deploy` branch triggers GitHub Actions (temporary, will be changed to `main`)
+- Push to `main` branch triggers GitHub Actions
 - Deployment script handles all steps automatically
 
 ### Frontend Update

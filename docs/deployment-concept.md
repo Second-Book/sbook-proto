@@ -12,8 +12,8 @@ Three separate GitHub repositories:
 
 Automatic deployment:
 
-- Backend: Deploys when `sbook-backend` `feature/github_deploy` branch is updated (temporary, will be changed to `main`)
-- Frontend: Deploys when `sbook-frontend` `feature/github_deploy` branch is updated (temporary, will be changed to `main`)
+- Backend: Deploys when `sbook-backend` `main` branch is updated
+- Frontend: Deploys when `sbook-frontend` `main` branch is updated
 - Independent deployments (can deploy one without the other)
 
 ## Deployment Flow
