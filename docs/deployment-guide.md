@@ -469,6 +469,129 @@ Note: `.env` file must be present in `/opt/sbook/backend/.env` with proper permi
 - Access logs: `sudo tail -f /var/log/nginx/sbook-access.log`
 - SSL certificates: verify paths and permissions
 
+### Health Check Fails
+
+**If backend health check fails after deployment:**
+
+1. Check service status:
+   ```bash
+   sudo supervisorctl status sbook-backend
+   ```
+
+2. Check logs for errors:
+   ```bash
+   sudo supervisorctl tail -f sbook-backend stderr
+   ```
+
+3. Verify service is listening:
+   ```bash
+   curl -v http://127.0.0.1:8000/api/health/
+   ```
+
+4. If service is down, check:
+   - Database connectivity
+   - Redis connectivity
+   - `.env` file exists and has correct permissions
+   - Dependencies installed: `cd /opt/sbook/backend && uv sync`
+
+5. If health check continues to fail, consider rollback (see Rollback section below)
+
+**If frontend health check fails after deployment:**
+
+1. Check PM2 status:
+   ```bash
+   pm2 status
+   pm2 logs sbook-frontend --lines 50
+   ```
+
+2. Verify service is listening:
+   ```bash
+   curl -v http://127.0.0.1:3000
+   ```
+
+3. If service is down, check:
+   - Dependencies installed: `cd /opt/sbook/frontend && pnpm install`
+   - Build artifacts exist: `ls -la /opt/sbook/frontend/.next`
+   - Port not in use: `netstat -tuln | grep 3000`
+
+4. If health check continues to fail, consider rollback (see Rollback section below)
+
+### Rollback Procedure
+
+**Backend rollback:**
+
+1. SSH to server:
+   ```bash
+   ssh ${SSH_USER}@${SSH_HOST}
+   ```
+
+2. Navigate to backend directory:
+   ```bash
+   cd /opt/sbook/backend
+   ```
+
+3. Check git log for previous working commit:
+   ```bash
+   git log --oneline -10
+   ```
+
+4. Checkout previous working commit:
+   ```bash
+   git checkout <previous-commit-hash>
+   ```
+
+5. Install dependencies and run migrations:
+   ```bash
+   uv sync
+   cd textbook_marketplace
+   uv run python manage.py migrate
+   uv run python manage.py collectstatic --noinput
+   ```
+
+6. Restart service:
+   ```bash
+   sudo supervisorctl restart sbook-backend
+   ```
+
+7. Verify health:
+   ```bash
+   curl http://127.0.0.1:8000/api/health/
+   ```
+
+**Frontend rollback:**
+
+1. SSH to server:
+   ```bash
+   ssh ${SSH_USER}@${SSH_HOST}
+   ```
+
+2. Navigate to frontend directory:
+   ```bash
+   cd /opt/sbook/frontend
+   ```
+
+3. Check git log for previous working commit:
+   ```bash
+   git log --oneline -10
+   ```
+
+4. Checkout previous working commit:
+   ```bash
+   git checkout <previous-commit-hash>
+   ```
+
+5. Rebuild and restart:
+   ```bash
+   pnpm install
+   pnpm build
+   pm2 restart sbook-frontend
+   ```
+
+6. Verify health:
+   ```bash
+   curl http://127.0.0.1:3000
+   ```
+
 ## Maintenance
 
 ### Log Rotation
@@ -512,6 +635,61 @@ tar -czf /opt/sbook/backups/media_$(date +%Y%m%d_%H%M%S).tar.gz /opt/sbook/backe
 ```bash
 tar -xzf /opt/sbook/backups/media_TIMESTAMP.tar.gz -C /
 ```
+
+### SSL Certificate Renewal
+
+Certbot automatically renews SSL certificates, but manual renewal can be triggered:
+
+**Check certificate expiration:**
+
+```bash
+sudo certbot certificates
+```
+
+**Renew certificates manually:**
+
+```bash
+sudo certbot renew
+```
+
+**Test renewal (dry run):**
+
+```bash
+sudo certbot renew --dry-run
+```
+
+**After renewal, reload nginx:**
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Certbot typically sets up automatic renewal via systemd timer. Verify:
+
+```bash
+sudo systemctl status certbot.timer
+```
+
+### Staging Environment
+
+For testing deployments before production, set up a staging environment:
+
+**Requirements:**
+
+- Separate server or separate directories on same server
+- Separate GitHub Secrets/Variables with `_STAGING` suffix
+- Separate database and Redis instances
+- Different domain names (e.g., `staging.sb.maria.rezvov.com`)
+
+**Setup steps:**
+
+1. Create staging deployment path: `/opt/sbook-staging/`
+2. Configure GitHub Variables with staging values:
+   - `DEPLOY_PATH_STAGING=/opt/sbook-staging`
+   - `FRONTEND_URL_STAGING=https://staging.sb.maria.rezvov.com`
+3. Use separate workflow or workflow inputs to deploy to staging
+4. Test deployments on staging before promoting to production
 
 ## Health Checks
 

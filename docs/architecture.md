@@ -157,21 +157,12 @@ Browser → Next.js SSR → API Service → Backend API
 
 ### Server Structure
 
-```
-/opt/sbook/
-├── backend/              # Django application
-│   ├── textbook_marketplace/
-│   ├── media/           # User-uploaded files
-│   ├── staticfiles/     # Collected static files
-│   └── logs/            # Application logs
-├── frontend/             # Next.js application
-│   ├── .next/           # Build output
-│   ├── node_modules/    # Dependencies
-│   └── logs/            # Application logs
-└── conf/                 # Configuration files
-    ├── sbook.nginx.conf
-    └── sbook-backend.supervisor.conf
-```
+See [deployment-concept.md](deployment-concept.md#directory-structure) for detailed directory structure.
+
+High-level overview:
+- `/opt/sbook/backend/` - Django application
+- `/opt/sbook/frontend/` - Next.js application
+- `/opt/sbook/conf/` - Configuration files (nginx, supervisor)
 
 ### Network Architecture
 
@@ -190,8 +181,7 @@ Nginx (Port 80/443)
 
 **Backend (Supervisor):**
 
-- Command: `/opt/sbook/backend/deploy/run.sh` (wrapper script)
-- Wrapper script runs: `daphne -b ${BACKEND_HOST} -p ${BACKEND_PORT} textbook_marketplace.asgi:application`
+- Command: `/home/sbook/.local/bin/uv run daphne -b ${BACKEND_HOST} -p ${BACKEND_PORT} textbook_marketplace.asgi:application`
 - Host and port configured via environment variables: `BACKEND_HOST` (default: `127.0.0.1`), `BACKEND_PORT` (default: `8000`)
 - Environment variables passed through supervisor `environment=` configuration
 - Auto-restart: enabled
@@ -199,7 +189,7 @@ Nginx (Port 80/443)
 
 **Frontend (PM2):**
 
-- Command: `node_modules/.bin/next start` (configured via `sbook-frontend.ecosystem.config.js`)
+- Command: `pnpm start` (configured via `sbook-frontend.ecosystem.config.js`)
 - Port: configured via `FRONTEND_PORT` environment variable (default: `3000`)
 - Auto-restart: enabled
 - Logs: `/opt/sbook/frontend/logs/`

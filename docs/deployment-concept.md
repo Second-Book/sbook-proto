@@ -13,7 +13,7 @@ Three separate GitHub repositories:
 Automatic deployment:
 
 - Backend: Deploys when `sbook-backend` `feature/github_deploy` branch is updated (temporary, will be changed to `main`)
-- Frontend: Deploys when `sbook-frontend` main branch is updated
+- Frontend: Deploys when `sbook-frontend` `feature/github_deploy` branch is updated (temporary, will be changed to `main`)
 - Independent deployments (can deploy one without the other)
 
 ## Deployment Flow
@@ -43,7 +43,6 @@ graph LR
 │   ├── textbook_marketplace/   # Application code
 │   │   └── .env               # Symlink to ../.env (for python-decouple)
 │   ├── deploy/                # Deployment scripts
-│   │   └── run.sh             # Supervisor wrapper script (runs daphne with BACKEND_HOST/BACKEND_PORT)
 │   ├── .env                   # Environment variables (generated on deploy, chmod 600)
 │   ├── media/                 # User uploads (persistent)
 │   ├── staticfiles/           # Collected static files
@@ -79,7 +78,7 @@ Benefits:
 
 **GitHub Actions Workflow Steps:**
 
-1. Checkout code (clone repository, checkout main branch)
+1. Checkout code (clone repository, checkout trigger branch)
 2. Setup environment (Python 3.12, uv package manager, install dependencies: `uv sync`)
 3. Run tests (`uv run pytest` with PostgreSQL and Redis services)
 4. Collect static files: `python manage.py collectstatic --noinput`
@@ -100,19 +99,19 @@ Benefits:
 **Supervisor Configuration:**
 
 - Process name: `sbook-backend`
-- Command: `/opt/sbook/backend/deploy/run.sh` (wrapper script that runs daphne)
+- Command: `/home/sbook/.local/bin/uv run daphne -b ${BACKEND_HOST} -p ${BACKEND_PORT} textbook_marketplace.asgi:application`
 - Working directory: `/opt/sbook/backend/textbook_marketplace`
 - Environment variables: `BACKEND_HOST` (default: `127.0.0.1`), `BACKEND_PORT` (default: `8000`)
 - Auto-restart: `true`
 - Logs: `/opt/sbook/backend/logs/`
 
-The wrapper script (`run.sh`) reads `BACKEND_HOST` and `BACKEND_PORT` from environment variables (passed through supervisor `environment=` configuration) and runs daphne with these values. Django reads `.env` file automatically using `python-decouple` library, so no explicit loading is needed in the wrapper script.
+Supervisor directly runs daphne via uv with environment variables passed through `environment=` configuration. Django reads `.env` file automatically using `python-decouple` library.
 
 ### Frontend Deployment
 
 **GitHub Actions Workflow Steps:**
 
-1. Checkout code (clone repository, checkout main branch)
+1. Checkout code (clone repository, checkout trigger branch)
 2. Setup environment (Node.js 18+ or 20, install pnpm, install dependencies: `pnpm install`)
 3. Build application (build Next.js: `pnpm build`, creates `.next/` directory)
 4. Deploy to server:
@@ -126,7 +125,7 @@ The wrapper script (`run.sh`) reads `BACKEND_HOST` and `BACKEND_PORT` from envir
 **PM2 Configuration:**
 
 - Process name: `sbook-frontend`
-- Command: `node_modules/.bin/next start` (configured via `sbook-frontend.ecosystem.config.js`)
+- Command: `pnpm start` (configured via `sbook-frontend.ecosystem.config.js`)
 - Working directory: `/opt/sbook/frontend`
 - Port: configured via `FRONTEND_PORT` environment variable (default: `3000`)
 - Instances: 1 (can be scaled)
@@ -137,45 +136,14 @@ The wrapper script (`run.sh`) reads `BACKEND_HOST` and `BACKEND_PORT` from envir
 
 ### Environment Variables
 
-**GitHub Secrets (sensitive data):**
+See [deployment-guide.md](deployment-guide.md#github-organization-secrets-and-variables) for complete configuration instructions.
 
-- `SSH_PRIVATE_KEY` - Private SSH key for server access
-- `SSH_HOST` - Server IP address or hostname
-- `SSH_USER` - SSH username
-- `DJANGO_SECRET_KEY` - Django secret key
-- `DB_PASSWORD` - PostgreSQL database password
-- `DJANGO_SUPERUSER_PASSWORD` - Password for Django superuser (created automatically)
+**Summary:**
 
-**GitHub Variables (non-sensitive):**
-
-- `DEPLOY_PATH` - `/opt/sbook`
-- `BACKEND_HOST` - Backend bind address (optional, default: `127.0.0.1`)
-- `BACKEND_PORT` - `8000` (default, can be overridden)
-- `FRONTEND_PORT` - `3000` (default, can be overridden)
-- `NODE_VERSION` - `18` or `20`
-- `PYTHON_VERSION` - `3.12`
-- `DJANGO_SUPERUSER_EMAIL` - Email for Django superuser (created automatically)
-
-**Server Environment Files:**
-
-- Backend: `/opt/sbook/backend/.env` (generated automatically during deployment)
-- Frontend: `/opt/sbook/frontend/.env`
-
-**Backend `.env` file:**
-
-- Generated automatically in GitHub Actions from Secrets and Variables
-- Deployed to server via `scp` with permissions `chmod 600`
-- Contains all Django settings (database, Redis, secrets, superuser credentials)
-- Read by Django using `python-decouple` library (automatic, no explicit loading needed)
-- Symlinked to `textbook_marketplace/.env` for management commands
-- NOT loaded by supervisor wrapper script (`run.sh`) - Django reads it automatically via python-decouple
-
-**Environment variables in `.env`:**
-
-- Database connection strings (`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`)
-- Redis configuration (`REDIS_HOST`, `REDIS_PORT`)
-- Django settings (`DJANGO_SECRET_KEY`, `DEBUG`, `FRONTEND_URL`)
-- Superuser credentials (`DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD`)
+- **GitHub Secrets**: SSH keys, database passwords, Django secret key, superuser credentials
+- **GitHub Variables**: Deployment paths, ports, database/Redis hosts, frontend URLs
+- **Server `.env` files**: Generated automatically from GitHub Secrets/Variables during deployment
+- **Backend `.env`**: Located at `/opt/sbook/backend/.env`, symlinked to `textbook_marketplace/.env` for Django management commands
 
 ### Nginx Configuration
 
@@ -245,7 +213,7 @@ The wrapper script (`run.sh`) reads `BACKEND_HOST` and `BACKEND_PORT` from envir
 - Secrets stored in GitHub Secrets (encrypted)
 - `.env` file generated automatically from GitHub Secrets/Variables during deployment
 - `.env` file deployed to server with restricted permissions (`chmod 600`)
-- Environment variables loaded by supervisor wrapper script and Django `python-decouple`
+- Environment variables passed through supervisor `environment=` configuration, Django reads `.env` via `python-decouple`
 - DO NOT store secrets in repository or deployment scripts
 - DO NOT manually edit `.env` on server - it is regenerated on each deployment
 - Secrets rotation: update GitHub Secrets, then redeploy to regenerate `.env`
