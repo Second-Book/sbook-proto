@@ -1,0 +1,99 @@
+---
+alwaysApply: false
+---
+
+# Ansible Scripting (LLM Rulebook)
+
+## Purpose
+
+Rules for authoring stage-based Ansible deployment/cleanup/diagnostic automation. Apply when designing or modifying playbooks/roles that provision, clean, or diagnose stages. DO NOT apply to runtime application code.
+
+## Priority and Applicability (MUST)
+
+- Local requirements in this file override generic Ansible/12-factor/DevOps guidance when conflicting.
+- Follow `../common/302-llm-oriented-writing.mdc` for wording (imperative, concise, unambiguous).
+- English only; use MUST/SHOULD/DO NOT/MAY consistently.
+- Prefer coherent, system-wide changes over ad-hoc fixes.
+
+## Development Order (MUST)
+
+- Before coding, produce an LLM-formatted deployment-steps document grouped by stages.
+- Stage sequencing and inclusion of prechecks/diagnostics MUST follow the explicit user prompt.
+- When diagnostics are requested, scope them per stage and tag them for selective execution.
+
+## Failure Handling (MUST)
+
+- DO NOT introduce fallback branches or auto-remediation paths; only explicit flows defined for deploy and diagnostics.
+- When prechecks are requested, validate required vars, inventory reachability, permissions, dependencies, and tool versions before destructive steps; abort immediately on missing prerequisites.
+- DO NOT suppress errors with conditionals for deploy/cleanup/precheck flows; stop on first failure.
+- Diagnostics flows (only) MUST run to completion to capture maximal information even when individual checks fail.
+
+## Modular Structure (MUST)
+
+- Isolate per-stage logic into reusable units: deploy tasks, cleanup tasks, diagnostic tasks.
+- Provide tags per stage (`stage:<name>`) and per action (`action:deploy`, `action:cleanup`, `action:diagnose`).
+- Supply aggregate entry plays: deploy-all, diagnose-all.
+- Share common variables/defaults via `group_vars`/`host_vars`/`defaults`.
+
+## Execution Flags (MUST)
+
+- Expose and document variables: inventory hosts/groups, SSH user, SSH key path, become usage, timeouts, stage selection via tags.
+- Support check mode for prechecks; tasks that cannot run in check mode use `check_mode: no` with justification.
+- DO NOT hardcode environment-specific values; accept via inventory, vars, or extra vars.
+
+## Diagnostics (MUST)
+
+Apply diagnostics only when requested by prompt:
+
+- MUST include: OS/facts summary, package/container versions, service status, enabled units, open/listening ports, DNS/connectivity, disk/memory thresholds, recent service logs.
+- MUST fail with actionable messages when thresholds are unmet.
+- Register outputs in structured vars for aggregate reporting.
+
+## Cleanup (MUST)
+
+- Expose cleanup via tags for explicit invocation.
+- Validate targets before deletion; remove only stage-owned resources.
+- Keep cleanup idempotent and safe when resources are already absent.
+- DO NOT mask failures with `ignore_errors`.
+
+## Ansible Best Practices (MUST/SHOULD)
+
+- Idempotency: prefer modules over `shell`/`command`; set `changed_when`/`failed_when` explicitly.
+- Error handling: DO NOT use `ignore_errors` except for informational probes guarded by `rescue/always`.
+- Linting: run `ansible-lint` and `yamllint`; keep playbooks compatible with check mode.
+- Concurrency: use `serial` and `max_fail_percentage` for safe rollouts.
+- Timeouts: define explicit timeouts for network/package tasks.
+- Handlers: use handlers for restart/reload; avoid unnecessary restarts.
+- Roles and defaults: organize per stage as roles; secrets MUST come from Ansible Vault or external secret managers.
+- Collections/roles MUST be pinned via `requirements.yml`.
+- Tagging: every task SHOULD include both stage and action tags.
+- Become: use least privilege; set `become` only where required.
+- DO NOT use `nerdctl`; manage containerd via `ctr` consistently.
+
+## DevOps Alignment (SHOULD)
+
+- Config externalization: all environment-specific values come from inventory/vars/ENV.
+- Reproducibility: version pin images/packages; document artifact versions per stage.
+- Observability: emit clear logs; surface registered diagnostics; provide summary at end of play.
+- Disposability: cleanup scripts return stage to known baseline.
+- Parity: use same playbooks for dev/stage/prod with environment-driven configuration only.
+
+## Documentation (MUST)
+
+- Document: required inventory/group structure, variables, SSH/become requirements, tag schemes, check-mode support, timeouts, prerequisites.
+- Provide runnable examples: deploy single stage, deploy-all, diagnose-all.
+
+## Validation (MUST)
+
+- Before delivery run `yamllint` and `ansible-lint` over all new/changed playbooks and roles.
+- Ensure required collections are installed and discoverable.
+
+## Images and Registries (MUST)
+
+- Use fully qualified image references (e.g., `docker.io/library/registry:2`).
+- Pre-pull critical images with retries before long Helm installs.
+
+## Out of Scope
+
+- Workload-specific tuning for third-party services.
+- CI/CD wiring; this rule governs playbook content and manual execution workflow only.

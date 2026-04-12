@@ -1,0 +1,163 @@
+---
+alwaysApply: false
+---
+
+# Observability / Tracing Rules (LLM Rulebook)
+
+## Purpose
+
+Rules for implementing observability in any service: distributed tracing, logs with trace correlation, metrics exposure. Apply when adding telemetry to services. Traces MUST be visible end-to-end across all services in Grafana/Tempo/Loki/Prometheus.
+
+## Service Identity (MUST)
+
+Every service MUST identify itself in telemetry:
+
+- `service.name` MUST be set and MUST be unique per service/binary.
+- Use lowercase kebab-case: `gateway-api`, `users-service`.
+
+```python
+# Python
+init_tracing("users-service", "http://otel-collector:4317")
+```
+
+```typescript
+// Node.js/TypeScript
+initTracing("users-service", "http://otel-collector:4317")
+```
+
+MAY skip in dev: `service.version`, `deployment.environment`.
+
+## Tracing Init (MUST)
+
+Each service MUST:
+
+1. Init OpenTelemetry tracer at startup.
+2. Export spans to OpenTelemetry Collector via OTLP gRPC (`:4317`).
+3. Install W3C TraceContext propagator.
+
+```python
+# Python
+from opentelemetry import trace
+from opentelemetry.propagate import set_global_textmap
+from opentelemetry.propagators.b3 import B3MultiFormat
+
+set_global_textmap(TraceContextTextMapPropagator())
+# tracer exports to http://otel-collector:4317 via OTLP gRPC
+```
+
+DO NOT:
+
+- Init tracer per request.
+- Send traces directly to Tempo from the app (always via Collector).
+
+## Trace Propagation (MUST)
+
+One `trace_id` MUST continue across all internal calls.
+
+- Incoming HTTP/gRPC: extract trace context from headers/metadata.
+- Start handler span as CHILD of that context.
+- Outgoing calls: inject current span context into headers/metadata.
+
+DO NOT:
+
+- Invent custom headers like `x-request-id` for tracing.
+- Use W3C `traceparent` / `tracestate` instead.
+- Drop context when relaying calls.
+
+## HTTP Edge Behavior (MUST)
+
+Any HTTP entrypoint (FastAPI, Express, Next.js API routes):
+
+- MUST accept incoming `traceparent` header if present.
+- MUST start a span using that as parent.
+- MUST pass that context into downstream calls.
+
+MAY skip in local dev: extracting real headers from curl/browser, but still create spans per request.
+
+## Logging Rules (MUST)
+
+- Logs MUST be structured (JSON or key=value).
+- Logs MUST include `trace_id` (and SHOULD include `span_id`).
+- Logs MUST go to stdout/stderr. No local files.
+
+```python
+# Python
+logger.info("user login ok", extra={"trace_id": get_trace_id(), "span_id": get_span_id()})
+```
+
+```typescript
+// TypeScript
+logger.info("user login ok", { traceId: getTraceId(), spanId: getSpanId() })
+```
+
+DO NOT:
+
+- Write unstructured logs without IDs.
+- Hide logs in rotating files.
+
+MAY keep human-readable logs in dev, but production logs MUST include `trace_id`.
+
+## Metrics (SHOULD)
+
+- Every production service SHOULD expose Prometheus metrics.
+- MUST expose latency histogram, error count, request count.
+- Endpoint SHOULD be `/metrics` on internal port `:9090`.
+- Prometheus scrapes; services DO NOT push.
+
+```python
+# Python
+from prometheus_client import start_http_server
+start_http_server(9090)
+```
+
+Allowed to skip: helper/batch/cron jobs. Core services MUST expose metrics.
+
+## Span Naming + Attributes (MUST)
+
+Span names MUST describe the operation:
+
+- GOOD: `GET /users/{id}`, `grpc UsersService.GetProfile`, `db.select_user_by_id`
+- BAD: `handler`, `stuff`, `call`
+
+Spans SHOULD include:
+
+- `http.method`, `http.route`, `http.status_code`
+- `rpc.system`, `rpc.service`, `rpc.method`
+- `error = true`, `exception.message` for errors
+
+DO NOT:
+
+- Put secrets or PII in spans.
+- Dump raw SQL unless explicitly allowed.
+
+## New Service Checklist
+
+When adding a new service:
+
+```text
+[ ] Init tracing with service name to otel-collector:4317
+[ ] Install W3C TraceContext propagator
+[ ] Extract parent trace (incoming HTTP/gRPC)
+[ ] Inject trace (outgoing calls)
+[ ] Log to stdout with trace_id
+[ ] Expose /metrics on :9090 (or document why not)
+```
+
+## Allowed to Skip (Temporarily)
+
+- Prometheus metrics in short-lived scripts.
+- Extra labels (user_id, tenant_id).
+- `service.version`, `deployment.environment` in dev.
+
+NOT allowed to skip:
+
+- `service.name`
+- TraceContext propagation
+- Trace context injection/extraction
+- Logging `trace_id`
+
+## Out of Scope
+
+- Language-specific framework integrations (covered in stack-specific rules).
+- Alerting and dashboard configuration.
+- Log aggregation infrastructure setup.

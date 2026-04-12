@@ -1,0 +1,148 @@
+---
+alwaysApply: false
+---
+
+# Cursor Rules Development Guide (LLM Rulebook)
+
+## Purpose
+
+Meta-rules for creating cursor rules. Apply when authoring new `.mdc` rule files or modifying existing ones. DO NOT apply when writing application code or other artifacts governed BY cursor rules.
+
+## Core Principles (MUST)
+
+- **LLM-oriented writing**: follow `302-llm-oriented-writing.mdc` for all rule content.
+- **Example-driven**: show concrete code/config/structure instead of describing format.
+- **English only**: all rule content MUST be in English.
+- **Self-consistency**: rules MUST validate against themselves before publication.
+
+## Structure (MUST)
+
+### H1 Section (required)
+
+```markdown
+# <Rule Name> (LLM Rulebook)
+
+## Purpose
+
+<One paragraph: what, when to apply, when NOT to apply>
+```
+
+### Body Sections (H2+)
+
+- Use imperative keywords: MUST, SHOULD, DO NOT, MAY.
+- Group related rules under H2.
+- Avoid narrative; use bullet lists.
+
+## Language and Style (MUST)
+
+Follow `302-llm-oriented-writing.mdc` for:
+
+- Directive keywords (MUST/SHOULD/DO NOT/MAY)
+- Compression techniques
+- Tone and anti-patterns
+- Example structure
+
+## Content Requirements (MUST)
+
+### Completeness
+
+- Cover mandatory cases exhaustively.
+- Mark optional/advanced cases explicitly (SHOULD, MAY).
+- Define boundaries: what rule does NOT cover.
+
+### Examples
+
+Prefer complete, runnable snippets over fragments:
+
+Bad:
+
+```markdown
+Use `DatabaseConnection` in repositories.
+```
+
+Good:
+
+```python
+class UserRepo:
+    def __init__(self, db: DatabaseConnection):
+        self.db = db
+
+    def find_by_id(self, user_id: int) -> User | None:
+        return self.db.query(User).get(user_id)
+```
+
+### Cross-references
+
+- Link related rules: `See 303-observability.mdc`.
+- DO NOT duplicate content; reference instead.
+
+## Validation Process (MUST)
+
+### Pre-publication Checklist
+
+1. **Ambiguity scan**: every MUST/DO NOT has single interpretation.
+2. **Coverage gaps**: edge cases explicitly marked as undefined or out-of-scope.
+3. **Contradictions**: no conflicting directives within file or across referenced rules.
+4. **Self-consistency**: file adheres to this guide.
+
+### Contradiction Detection
+
+Bad:
+
+```markdown
+- Configuration MUST come from ENV only.
+- Configuration MAY read `config.toml` for defaults.
+```
+
+Good:
+
+```markdown
+- Mandatory settings MUST come from ENV.
+- Optional defaults MAY be embedded at compile time.
+- DO NOT read external files at runtime.
+```
+
+### Gap Handling
+
+Explicitly state out-of-scope or undefined:
+
+```markdown
+## Out of Scope
+
+- Multi-tenancy configuration strategies.
+- Dynamic runtime rule injection.
+```
+
+## File Naming and Organization (MUST)
+
+- `NNN-topic-name.mdc` (e.g., `501-python-development.mdc`).
+- Group by hundreds: 3xx (common), 4xx (ops), 5xx (python), 6xx (nextjs).
+- `alwaysApply: true` for master/navigation rules and universal rules.
+- `alwaysApply: false` for contextual rules.
+
+## Master Files (MUST)
+
+When a folder contains multiple rule files:
+
+- Create `N00-<stack>-master.mdc` (e.g., `500-python-master.mdc`).
+- Master file MUST have `alwaysApply: true`.
+- Master file contains ONLY navigation table, no detailed rules.
+
+## Anti-patterns (DO NOT)
+
+- Mix `alwaysApply` semantics: workspace-wide rules with contextual content.
+- Duplicate content across rule files: use cross-references instead.
+- Omit "Out of Scope" section when boundaries are ambiguous.
+- Use P0/P1/P2/P3 priority markers (use MUST/SHOULD/MAY instead).
+
+## Self-Check (Final Validation)
+
+Before committing rule file:
+
+1. H1 "Purpose" section present: what, when to apply, when NOT to apply.
+2. Passes LLM-oriented writing checks from `302-llm-oriented-writing.mdc`.
+3. Examples are complete, runnable snippets (not fragments).
+4. No contradictions within file or with cross-referenced rules.
+5. English language throughout.
+6. Frontmatter `alwaysApply` correctly set.
+7. File adheres to its own structural and style requirements.

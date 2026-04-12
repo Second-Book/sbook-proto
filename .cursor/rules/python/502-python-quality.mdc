@@ -1,0 +1,415 @@
+---
+alwaysApply: false
+---
+
+# Python Quality Guide (LLM Rulebook)
+
+## Purpose
+
+Testing, error handling, and logging rules for Python projects. Apply when writing tests, implementing error handling, or adding logging. DO NOT apply to non-Python code.
+
+## Testing (MUST)
+
+### Framework
+
+Use `pytest` as the primary testing tool.
+
+### Test Structure
+
+```
+tests/
+├── unit/
+│   ├── test_services.py
+│   └── test_utils.py
+└── integration/
+    └── test_api.py
+```
+
+Test file names MUST start with `test_`.
+
+### Test Pattern
+
+```python
+import pytest
+from myproject.services import UserService
+
+@pytest.fixture
+def user_service() -> UserService:
+    return UserService(repository=MockRepository())
+
+def test_create_user_returns_user(user_service: UserService) -> None:
+    # Arrange
+    email = "test@example.com"
+
+    # Act
+    user = user_service.create(email=email)
+
+    # Assert
+    assert user.email == email
+```
+
+### TDD Cycle
+
+1. **Red**: Write failing test first.
+2. **Green**: Implement minimal code to pass.
+3. **Refactor**: Improve while maintaining green tests.
+
+### Best Practices
+
+- One test = one behavior.
+- Use descriptive test names: `test_<function>_<scenario>_<expected>`.
+- Use fixtures for setup/teardown.
+- Mock only external dependencies.
+- Test edge cases and error conditions.
+
+### Parameterized Tests
+
+```python
+@pytest.mark.parametrize("input_val,expected", [
+    ("test", "TEST"),
+    ("hello", "HELLO"),
+    ("", ""),
+])
+def test_uppercase(input_val: str, expected: str) -> None:
+    assert input_val.upper() == expected
+```
+
+### Async Tests
+
+Configure in `pytest.ini`:
+
+```ini
+[pytest]
+asyncio_mode = auto
+asyncio_default_fixture_loop_scope = function
+```
+
+```python
+async def test_async_fetch() -> None:
+    result = await fetch_data()
+    assert result is not None
+```
+
+### Django Testing (pytest.ini)
+
+For Django projects, configure pytest in `pytest.ini`:
+
+```ini
+[pytest]
+DJANGO_SETTINGS_MODULE=project_name.settings_dev
+python_files=tests.py
+addopts = --maxfail=1 --reuse-db --no-migrations
+testpaths = app1 app2
+asyncio_default_fixture_loop_scope = function
+log_cli=true
+log_level=INFO
+log_format = %(asctime)s %(levelname)s %(message)s
+log_date_format = %Y-%m-%d %H:%M:%S
+```
+
+- `DJANGO_SETTINGS_MODULE`: Django settings module for tests
+- `python_files=tests.py`: Test files naming pattern
+- `--reuse-db`: Reuse test database between runs
+- `--no-migrations`: Skip migrations in tests (faster)
+- `testpaths`: List of Django apps with tests
+
+### Coverage
+
+Target: 80%+ for unit tests.
+
+```bash
+uv run pytest --cov=myproject --cov-report=term-missing
+```
+
+## Error Handling (MUST)
+
+### Standard Exceptions
+
+Use built-in exceptions where applicable:
+
+- `ValueError` — incorrect values
+- `TypeError` — incorrect types
+- `KeyError` — missing keys
+- `FileNotFoundError` — missing files
+- `PermissionError` — insufficient permissions
+- `TimeoutError` — operation timeouts
+
+### Custom Exceptions
+
+Create custom exceptions for business logic:
+
+```python
+class AppError(Exception):
+    """Base exception for application errors."""
+    pass
+
+class ValidationError(AppError):
+    """Raised when validation fails."""
+    pass
+
+class NotFoundError(AppError):
+    """Raised when resource not found."""
+    pass
+```
+
+### Exception Hierarchy
+
+```python
+class AppError(Exception):
+    """Base exception for all application errors."""
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        self.message = message
+        self.code = code or "APP_ERROR"
+        super().__init__(message)
+
+class DatabaseError(AppError):
+    """Database-related errors."""
+    pass
+
+class NetworkError(AppError):
+    """Network-related errors."""
+    pass
+
+class ValidationError(AppError):
+    """Validation errors."""
+    pass
+```
+
+### Informative Messages
+
+```python
+# BAD
+raise ValueError("Invalid input")
+
+# GOOD
+raise ValueError(f"Age must be between 0 and 120, got {age}")
+```
+
+### Exception Handling
+
+Handle at appropriate level with minimal scope:
+
+```python
+# BAD: too broad
+try:
+    data = load_data(path)
+    process(data)
+    save(data)
+except Exception as e:
+    logger.error("Error: %s", e)
+
+# GOOD: specific handling
+try:
+    data = load_data(path)
+except FileNotFoundError:
+    logger.error("File not found: %s", path)
+    return
+
+try:
+    process(data)
+except ValueError as e:
+    logger.error("Processing error: %s", e)
+    return
+```
+
+### Re-raising with Context
+
+```python
+try:
+    result = api_client.fetch()
+except RequestError as e:
+    logger.error("API request failed: %s", e)
+    raise DataFetchError(f"Failed to fetch data: {e}") from e
+```
+
+### DO NOT
+
+- Catch bare `Exception` unless re-raising.
+- Swallow exceptions silently.
+- Include secrets in error messages.
+
+## Logging (MUST)
+
+### Configuration
+
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
+```
+
+### Levels
+
+- `DEBUG` — detailed debugging info
+- `INFO` — normal operation confirmation
+- `WARNING` — potential issues
+- `ERROR` — errors that don't stop the app
+- `CRITICAL` — errors causing shutdown
+
+### Message Format
+
+Include context:
+
+```python
+# BAD
+logger.info("User logged in")
+
+# GOOD
+logger.info("User logged in: user_id=%s, ip=%s", user_id, ip_address)
+```
+
+### Structured Logging
+
+```python
+logger.info(
+    "Processing order",
+    extra={
+        "order_id": order.id,
+        "customer_id": order.customer_id,
+        "amount": order.amount,
+    }
+)
+```
+
+### structlog (Django Projects)
+
+For Django projects, use `structlog` for structured JSON logging:
+
+```python
+# settings.py
+import structlog
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': structlog.stdlib.ProcessorFormatter,
+            'processor': structlog.processors.JSONRenderer(),
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'json',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer(),
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+```
+
+Usage in code:
+
+```python
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+def create_textbook(title: str, seller_id: int) -> Textbook:
+    logger.info(
+        "Creating textbook",
+        title=title,
+        seller_id=seller_id,
+    )
+    # ... create logic
+    logger.info(
+        "Textbook created",
+        textbook_id=textbook.id,
+        title=title,
+    )
+    return textbook
+```
+
+### Exception Logging
+
+```python
+try:
+    process_data(data)
+except Exception:
+    logger.exception("Error processing data")  # Includes traceback
+```
+
+### Module Logger
+
+Each module MUST have its own logger:
+
+```python
+# myproject/services/user.py
+import logging
+
+logger = logging.getLogger(__name__)
+
+def create_user(email: str) -> User:
+    logger.debug("Creating user: %s", email)
+    # ...
+    logger.info("User created: %s", user.id)
+    return user
+```
+
+### Sensitive Data
+
+DO NOT log secrets. See `../common/304-secret-leak-detection.mdc`.
+
+```python
+# BAD
+logger.info("API key: %s", api_key)
+
+# GOOD
+logger.info("API key: ***MASKED***")
+```
+
+### Production Configuration
+
+```python
+from logging.handlers import RotatingFileHandler
+
+handler = RotatingFileHandler(
+    "app.log",
+    maxBytes=10 * 1024 * 1024,  # 10 MB
+    backupCount=5,
+)
+handler.setFormatter(logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+))
+logger.addHandler(handler)
+```
+
+## Integration
+
+- Testing integrates with error handling: test all exception paths.
+- Logging integrates with errors: log exceptions with context.
+- See `../common/303-observability.mdc` for trace correlation.
+
+## Out of Scope
+
+- Integration testing infrastructure (testcontainers, docker-compose).
+- Log aggregation and monitoring setup.
+- Alerting configuration.

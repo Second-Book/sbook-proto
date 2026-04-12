@@ -1,0 +1,396 @@
+---
+alwaysApply: false
+---
+
+# Next.js Development Guide (LLM Rulebook)
+
+## Purpose
+
+Project structure, TypeScript configuration, naming conventions, and package management for Next.js applications. Apply when setting up or modifying Next.js projects. DO NOT apply to backend-only services.
+
+## Project Structure (MUST)
+
+### Top-level Organization
+
+```
+project-root/
+├── src/
+│   ├── app/           # Next.js App Router
+│   ├── components/    # React components
+│   ├── lib/           # Utilities and shared code
+│   └── styles/        # Global styles
+├── test/              # All test files
+├── public/            # Static assets
+├── package.json
+└── tsconfig.json
+```
+
+### Source Directory
+
+```
+src/
+├── app/
+│   ├── layout.tsx     # Root layout
+│   ├── page.tsx       # Homepage
+│   └── [feature]/     # Feature routes
+│       ├── page.tsx
+│       └── layout.tsx
+├── components/
+│   ├── ui/            # Base components
+│   ├── features/      # Feature-specific components
+│   └── [ComponentName]/
+│       ├── ComponentName.tsx
+│       └── ComponentNameStyle.module.css
+├── services/          # API clients and services
+│   ├── api.ts         # Axios client configuration
+│   ├── authService.ts
+│   └── [feature]Service.ts
+├── utils/             # Utilities and helpers
+│   ├── actions.ts     # Server actions
+│   ├── functions.ts    # Helper functions
+│   ├── schemas.ts     # Zod schemas
+│   └── types.ts       # TypeScript types
+├── hooks/             # Custom React hooks
+│   └── use[Feature].tsx
+├── stores/            # Zustand stores
+│   └── [feature]Store.ts
+├── providers/         # Context providers
+│   └── [Feature]Provider.tsx
+└── styles/
+    └── globals.css
+```
+
+### Test Directory
+
+```
+e2e/                   # Playwright E2E tests
+└── [feature].spec.ts
+
+src/components/
+└── __tests__/         # Component unit tests
+    └── ComponentName.test.tsx
+```
+
+## Naming Conventions (MUST)
+
+### Files and Directories
+
+- Directories: kebab-case (`user-profile/`)
+- Utility files: kebab-case (`form-utils.ts`)
+- Component files: PascalCase (`Button.tsx`)
+- Test files: `ComponentName.test.tsx`
+
+### Components
+
+```
+components/
+├── ui/
+│   ├── Button.tsx
+│   ├── Card.tsx
+│   └── TextField.tsx
+└── features/
+    ├── auth/
+    │   ├── LoginForm.tsx
+    │   └── SignupForm.tsx
+    └── dashboard/
+        └── ActivityChart.tsx
+```
+
+## TypeScript Configuration (MUST)
+
+### tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+### Strict Options
+
+```json
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}
+```
+
+## Import Conventions (MUST)
+
+### Aliases
+
+```typescript
+// tsconfig.json paths
+{
+  "@/*": ["./src/*"]
+}
+
+// Usage
+import { Button } from "@/components/ui/Button"
+import { useAuth } from "@/lib/auth"
+```
+
+### Import Order
+
+```typescript
+// 1. External dependencies (alphabetical)
+import { useState } from "react"
+import { z } from "zod"
+
+// 2. Internal modules (by path depth, then alphabetical)
+import { Button } from "@/components/ui/Button"
+import { useAuth } from "@/lib/auth"
+
+// 3. Types and styles last
+import type { User } from "@/lib/types"
+import "@/styles/module.css"
+```
+
+### Barrel Exports
+
+```typescript
+// src/components/ui/index.ts
+export { Button } from "./Button"
+export { Card } from "./Card"
+export { TextField } from "./TextField"
+
+// Usage
+import { Button, Card, TextField } from "@/components/ui"
+```
+
+## Component Structure (MUST)
+
+### File Organization
+
+```typescript
+// src/components/features/auth/LoginForm.tsx
+
+// 1. Imports
+import { useState } from "react"
+import { Button } from "@/components/ui/Button"
+
+// 2. Types
+interface LoginFormProps {
+  onSuccess?: () => void
+}
+
+// 3. Component definition
+export function LoginForm({ onSuccess }: LoginFormProps) {
+  return (
+    <form>
+      {/* Component JSX */}
+    </form>
+  )
+}
+```
+
+### Client Component Annotation
+
+```typescript
+"use client"
+
+import { useState } from "react"
+// Rest of component
+```
+
+### Prop Typing
+
+```typescript
+// Direct interface
+interface ButtonProps {
+  variant?: "primary" | "secondary" | "outline"
+  size?: "sm" | "md" | "lg"
+  isLoading?: boolean
+  children: React.ReactNode
+}
+
+// Extending HTML element
+import { ComponentPropsWithoutRef } from "react"
+
+interface ButtonProps extends ComponentPropsWithoutRef<"button"> {
+  variant?: "primary" | "secondary" | "outline"
+  isLoading?: boolean
+}
+```
+
+## Route Organization (MUST)
+
+### App Router Structure
+
+```
+src/app/
+├── layout.tsx         # Root layout
+├── page.tsx           # Homepage
+├── auth/
+│   ├── login/
+│   │   └── page.tsx
+│   └── signup/
+│       └── page.tsx
+└── dashboard/
+    ├── layout.tsx     # Dashboard layout
+    ├── page.tsx       # Dashboard index
+    └── settings/
+        └── page.tsx
+```
+
+### Route Grouping
+
+```
+src/app/
+├── (marketing)/       # Marketing pages group
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── about/
+│       └── page.tsx
+└── (app)/             # Authenticated app group
+    ├── layout.tsx
+    └── dashboard/
+        └── page.tsx
+```
+
+## Package Management (MUST)
+
+Use `pnpm` exclusively:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Add dependency
+pnpm add react-query
+
+# Add dev dependency
+pnpm add -D typescript
+
+# Run scripts
+pnpm dev
+pnpm build
+pnpm test
+```
+
+### package.json Scripts
+
+```json
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  }
+}
+```
+
+## Type Declarations (MUST)
+
+### Organization
+
+```
+src/lib/types/
+├── api/           # API related types
+├── models/        # Domain models
+├── components/    # Component props
+└── index.ts       # Re-exports
+```
+
+### Common Types
+
+```typescript
+// lib/types/api.ts
+export interface ApiResponse<T> {
+  data: T
+  meta?: {
+    page?: number
+    limit?: number
+    total?: number
+  }
+}
+
+export interface ApiError {
+  code: string
+  message: string
+  details?: Record<string, unknown>
+}
+
+// lib/types/models.ts
+export interface User {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+```
+
+### Type Guards
+
+```typescript
+// lib/utils/type-guards.ts
+import { User } from "@/lib/types"
+
+export function isUser(obj: unknown): obj is User {
+  return (
+    obj !== null &&
+    typeof obj === "object" &&
+    "id" in obj &&
+    "name" in obj &&
+    "email" in obj
+  )
+}
+```
+
+## Environment Variables (MUST)
+
+### Type-safe Environment
+
+```typescript
+// types/env.d.ts
+declare namespace NodeJS {
+  interface ProcessEnv {
+    NODE_ENV: "development" | "production" | "test"
+    NEXT_PUBLIC_API_URL: string
+    DATABASE_URL: string
+  }
+}
+```
+
+### File Organization
+
+```
+project-root/
+├── .env                # Default (committed)
+├── .env.local          # Local overrides (not committed)
+├── .env.development    # Development (committed)
+└── .env.production     # Production (committed)
+```
+
+## Out of Scope
+
+- UI component styling (see 602-nextjs-components.mdc)
+- API routes and testing (see 603-nextjs-api-testing.mdc)
+- Internationalization
+- Performance optimization

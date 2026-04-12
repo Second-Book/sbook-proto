@@ -1,0 +1,48 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules Index (LLM Rulebook)
+
+## Purpose
+
+Root navigation for all cursor rules. Apply to any project using this ruleset.
+
+## Common (3xx)
+
+| File | Purpose |
+|------|---------|
+| common/300-common-master.mdc | Navigation for common rules |
+| common/301-cursor-rules-development.mdc | How to write cursor rules |
+| common/302-llm-oriented-writing.mdc | LLM writing style (alwaysApply) |
+| common/303-observability.mdc | Tracing, logging, metrics |
+| common/304-secret-leak-detection.mdc | Secret handling (alwaysApply) |
+
+## Ops (4xx)
+
+| File | Purpose |
+|------|---------|
+| ops/401-ansible.mdc | Ansible automation |
+
+## Python (5xx)
+
+| File | Purpose |
+|------|---------|
+| python/500-python-master.mdc | Navigation for Python rules |
+| python/501-python-development.mdc | Code style, types, architecture |
+| python/502-python-quality.mdc | Testing, errors, logging |
+| python/503-python-uv.mdc | UV tooling |
+| python/504-python-django.mdc | Django apps, models, views, serializers |
+
+## Next.js (6xx)
+
+| File | Purpose |
+|------|---------|
+| nextjs/600-nextjs-master.mdc | Navigation for Next.js rules |
+| nextjs/601-nextjs-development.mdc | Structure, types, conventions |
+| nextjs/602-nextjs-components.mdc | UI, shadcn, Tailwind |
+| nextjs/603-nextjs-api-testing.mdc | API, testing |
+
+## Maintenance
+
+See `001-rules-maintenance.mdc` for update procedures.
