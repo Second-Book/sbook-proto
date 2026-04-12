@@ -1,105 +1,41 @@
-# sbook-proto
+# 🧩 sbook-proto
 
-Workspace configuration and development tools for Textbook Marketplace project.
+Workspace orchestration for **SecondBook** — textbook marketplace.
 
-## Purpose
+## Repos
 
-This repository contains:
+| Alias | Repo | Description |
+| --- | --- | --- |
+| 🧩 proto | `Second-Book/sbook-proto` | Workspace config, docs |
+| ⚙️ back | `Second-Book/sbook-backend` | Django REST API + WebSocket |
+| 🎨 front | `Second-Book/sbook-frontend` | Next.js frontend |
 
-- Cursor workspace configuration (`sbook.code-workspace`)
-- SQLTools database connection settings
-- Shared development tooling and scripts
-
-## Project Structure
-
-Textbook Marketplace consists of three repositories:
-
-1. **sbook-proto** (this repository): Workspace configuration
-   - Path: `/home/arezvov/d/projects/sbook/sbook-proto`
-2. **sbook-backend**: Django REST API
-   - Path: `/home/arezvov/d/projects/sbook/sbook-backend`
-   - README: `../sbook-backend/README.md`
-3. **sbook-frontend**: Next.js application
-   - Path: `/home/arezvov/d/projects/sbook/sbook-frontend`
-   - README: `../sbook-frontend/README.md`
-
-## Workspace Setup
-
-### Opening Workspace
-
-Open workspace in Cursor:
+## Quick Start
 
 ```bash
-cursor sbook.code-workspace
+# Clone all repos into the same parent dir
+mkdir -p ~/d/projects/sbook && cd ~/d/projects/sbook
+git clone git@github.com:Second-Book/sbook-proto.git
+git clone git@github.com:Second-Book/sbook-backend.git
+git clone git@github.com:Second-Book/sbook-frontend.git
+
+# Open workspace
+code sbook-proto/sbook.code-workspace
 ```
 
-Workspace includes all three project folders and SQLTools configuration.
+**New to the project?** Start with [Onboarding](docs/onboarding.md) — project overview, stack, key concepts, and full setup checklist.
 
-### SQLTools Configuration
+See [CLAUDE.md](CLAUDE.md) for architecture, API endpoints, and deployment reference.
 
-Database connection pre-configured:
+## Docs
 
-- **Name**: `sbook`
-- **Driver**: PostgreSQL
-- **Host**: `localhost`
-- **Port**: `10543`
-- **Database**: `textbook`
-- **Username**: `textbook`
-- **Password**: `textbook`
+- [Onboarding](docs/onboarding.md) — project overview + new developer setup checklist
+- [Database](docs/database.md) — backup, restore, local/production
+- [Nginx](docs/nginx.md) — config, SSL, domains
+- [Monitoring](docs/monitoring.md) — logs, service status, restart
+- [Troubleshooting](docs/troubleshooting.md) — common issues and fixes
 
-MUST start backend database before using SQLTools (see Local Development Setup).
+## Production
 
-## Repository Setup
-
-### Cloning Repositories
-
-MUST clone all three repositories to the same parent directory:
-
-```bash
-# Create parent directory
-mkdir -p ~/projects/sbook
-cd ~/projects/sbook
-
-# Clone repositories
-git clone git@github.com:Second-Book/sbook-proto.git 
-git clone git@github.com:Second-Book/sbook-backend.git 
-git clone git@github.com:Second-Book/sbook-frontend.git 
-```
-
-Expected directory structure:
-
-```text
-~/projects/sbook/
-├── sbook-proto/
-├── sbook-backend/
-└── sbook-frontend/
-```
-
-## Local Development Setup
-
-### Prerequisites
-
-MUST install:
-
-- **Backend**: Python 3.12, uv, Docker, docker-compose
-- **Frontend**: Node.js 18+, pnpm 8+
-
-### Setup Order
-
-1. **Backend setup** (MUST be first): See `../sbook-backend/README.md`
-2. **Frontend setup**: See `../sbook-frontend/README.md`
-
-### Service URLs
-
-- **Backend API**: `http://localhost:8000`
-- **Frontend**: `http://localhost:3000`
-- **Django Admin**: `http://localhost:8000/admin/`
-- **API Docs**: `http://localhost:8000/api/docs/`
-- **PostgreSQL**: `localhost:10543`
-- **Redis**: `localhost:16379`
-
-## Files Reference
-
-- [sbook.code-workspace](sbook.code-workspace) - Cursor workspace configuration
-- [../sbook-backend/README.md](../sbook-backend/README.md) - Backend documentation
-- [../sbook-frontend/README.md](../sbook-frontend/README.md) - Frontend documentation
+- Frontend: `https://secondbook.digital`
+- Backend API: `https://api.secondbook.digital`
