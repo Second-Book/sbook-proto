@@ -158,6 +158,21 @@ pnpm dev
 - [ ] Registration — create user via frontend, login works
 - [ ] Chat — open two browser tabs, send messages between users
 
+## Git Workflow
+
+All repos use the same branching model:
+
+```text
+feature/xxx  →  dev  →  (PR)  →  main  →  auto-deploy to production
+```
+
+- Work on `dev` or create a feature branch from `dev`
+- Merge feature branches into `dev` via PR
+- When ready to deploy: create a PR from `dev` → `main` and merge it
+- Push to `main` triggers GitHub Actions → automatic deploy to production
+
+Never commit directly to `main`.
+
 ## CI/CD Access (for deploying)
 
 To enable GitHub Actions deployment, the following must be configured in each repo's Settings → Secrets and Variables:

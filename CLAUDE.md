@@ -173,11 +173,28 @@ uv run python textbook_marketplace/manage.py generate_fake_messages N
 - **Logs**: backend `/opt/sbook/backend/logs/`, frontend `pm2 logs sbook-frontend`
 - **PM2**: needs `export PATH=$HOME/.local/share/pnpm:$PATH`
 
-## CI/CD Deployment
+## Git Workflow
 
-Both repos deploy via **GitHub Actions** on push to `main` (or manual `workflow_dispatch`).
+All work happens on `dev` branch (or feature branches off `dev`). Production deploys from `main`.
 
-### Deploy Process
+```text
+feature/xxx  →  dev  →  (PR)  →  main  →  auto-deploy to production
+```
+
+### Day-to-day
+
+1. Work on `dev` or create a feature branch from `dev`
+2. Push to `dev` (or merge feature branch into `dev` via PR)
+3. When ready to deploy: create a PR from `dev` → `main`
+4. Merge the PR — GitHub Actions automatically deploys to production
+
+### Branch rules
+
+- `dev` — active development, always up to date
+- `main` — production, only updated via PRs from `dev`
+- Feature branches — `feature/xxx`, `fix/xxx` from `dev`, merged back via PR
+
+### Deploy commands (manual shortcut)
 
 ```bash
 # Deploy backend
@@ -188,6 +205,10 @@ git checkout main && git merge dev && git push origin main
 cd ../sbook-frontend
 git checkout main && git merge dev && git push origin main
 ```
+
+## CI/CD Pipelines
+
+Both repos deploy via **GitHub Actions** on push to `main` (or manual `workflow_dispatch`).
 
 ### ⚙️ back Pipeline (`.github/workflows/deploy.yml`)
 
