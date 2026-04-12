@@ -4,10 +4,10 @@
 			"path": "."
 		},
 		{
-			"path": "../textbook-marketplace-backend"
+			"path": "../sbook-backend"
 		},
 		{
-			"path": "../textbook-marketplace-frontend"
+			"path": "../sbook-frontend"
 		}
 	],
 	"settings": {

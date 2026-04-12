@@ -15,13 +15,13 @@ This repository contains:
 Textbook Marketplace consists of three repositories:
 
 1. **sbook-proto** (this repository): Workspace configuration
-   - Path: `/home/arezvov/projects/sbook/sbook-proto`
-2. **textbook-marketplace-backend**: Django REST API
-   - Path: `/home/arezvov/projects/sbook/textbook-marketplace-backend`
-   - README: `../textbook-marketplace-backend/README.md`
-3. **textbook-marketplace-frontend**: Next.js application
-   - Path: `/home/arezvov/projects/sbook/textbook-marketplace-frontend`
-   - README: `../textbook-marketplace-frontend/README.md`
+   - Path: `/home/arezvov/d/projects/sbook/sbook-proto`
+2. **sbook-backend**: Django REST API
+   - Path: `/home/arezvov/d/projects/sbook/sbook-backend`
+   - README: `../sbook-backend/README.md`
+3. **sbook-frontend**: Next.js application
+   - Path: `/home/arezvov/d/projects/sbook/sbook-frontend`
+   - README: `../sbook-frontend/README.md`
 
 ## Workspace Setup
 
@@ -62,8 +62,8 @@ cd ~/projects/sbook
 
 # Clone repositories
 git clone git@github.com:Second-Book/sbook-proto.git 
-git clone git@github.com:Second-Book/textbook-marketplace-backend.git 
-git clone git@github.com:Second-Book/textbook-marketplace-frontend.git 
+git clone git@github.com:Second-Book/sbook-backend.git 
+git clone git@github.com:Second-Book/sbook-frontend.git 
 ```
 
 Expected directory structure:
@@ -71,8 +71,8 @@ Expected directory structure:
 ```text
 ~/projects/sbook/
 ├── sbook-proto/
-├── textbook-marketplace-backend/
-└── textbook-marketplace-frontend/
+├── sbook-backend/
+└── sbook-frontend/
 ```
 
 ## Local Development Setup
@@ -86,8 +86,8 @@ MUST install:
 
 ### Setup Order
 
-1. **Backend setup** (MUST be first): See `../textbook-marketplace-backend/README.md`
-2. **Frontend setup**: See `../textbook-marketplace-frontend/README.md`
+1. **Backend setup** (MUST be first): See `../sbook-backend/README.md`
+2. **Frontend setup**: See `../sbook-frontend/README.md`
 
 ### Service URLs
 
@@ -101,5 +101,5 @@ MUST install:
 ## Files Reference
 
 - [sbook.code-workspace](sbook.code-workspace) - Cursor workspace configuration
-- [../textbook-marketplace-backend/README.md](../textbook-marketplace-backend/README.md) - Backend documentation
-- [../textbook-marketplace-frontend/README.md](../textbook-marketplace-frontend/README.md) - Frontend documentation
+- [../sbook-backend/README.md](../sbook-backend/README.md) - Backend documentation
+- [../sbook-frontend/README.md](../sbook-frontend/README.md) - Frontend documentation
